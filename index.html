@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OmCounter</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Karma:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
-              serif: ['Merriweather', 'serif'],
+              serif: ['Karma', 'serif'],
+              display: ['Cinzel Decorative', 'cursive'],
             },
             colors: {
               saffron: {
@@ -27,9 +30,28 @@
                 800: '#ff8f00',
                 900: '#ff6f00',
               },
-              teal: {
-                800: '#115e59',
-                900: '#134e4a',
+              mystic: {
+                50: '#f5f3ff',
+                100: '#ede9fe',
+                200: '#ddd6fe',
+                300: '#c4b5fd',
+                400: '#a78bfa',
+                500: '#8b5cf6',
+                600: '#7c3aed',
+                700: '#6d28d9',
+                800: '#5b21b6',
+                900: '#4c1d95',
+                950: '#2e1065',
+              },
+              lotus: {
+                50: '#fdf2f8',
+                100: '#fce7f3',
+                200: '#fbcfe8',
+                300: '#f9a8d4',
+                400: '#f472b6',
+                500: '#ec4899',
+                600: '#db2777',
+                700: '#be185d',
               }
             }
           },
@@ -45,6 +67,13 @@
       .no-scrollbar {
           -ms-overflow-style: none;  /* IE and Edge */
           scrollbar-width: none;  /* Firefox */
+      }
+      
+      .bg-sacred-pattern {
+        background-color: #fafaf9;
+        background-image: radial-gradient(#e7e5e4 1px, transparent 1px), radial-gradient(#e7e5e4 1px, transparent 1px);
+        background-position: 0 0, 20px 20px;
+        background-size: 40px 40px;
       }
     </style>
   <script type="importmap">

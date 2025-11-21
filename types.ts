@@ -15,6 +15,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  lastLogin?: string; // Added for Excel report
 }
 
 export interface UserStats {
@@ -37,6 +38,13 @@ export interface Member {
   lastActive: string;
 }
 
+export interface Announcement {
+  id: string;
+  text: string;
+  date: string;
+  authorName: string;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -45,6 +53,8 @@ export interface Group {
   adminId: string; // The user who created it
   members: Member[];
   totalGroupCount: number;
+  announcements: Announcement[];
+  isPremium?: boolean; // Determines if the group has raised limits
 }
 
 export enum View {

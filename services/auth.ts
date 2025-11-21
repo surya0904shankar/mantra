@@ -26,6 +26,7 @@ export const authService = {
       id: crypto.randomUUID(),
       name,
       email,
+      lastLogin: new Date().toISOString(),
       passwordHash: btoa(password) // Simple encoding for demo purposes
     };
 
@@ -33,7 +34,12 @@ export const authService = {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
     
     // Auto login
-    const profile: UserProfile = { id: newUser.id, name: newUser.name, email: newUser.email };
+    const profile: UserProfile = { 
+      id: newUser.id, 
+      name: newUser.name, 
+      email: newUser.email,
+      lastLogin: newUser.lastLogin 
+    };
     localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
     return profile;
   },
@@ -50,8 +56,18 @@ export const authService = {
       throw new Error("Invalid email or password");
     }
 
-    const profile: UserProfile = { id: user.id, name: user.name, email: user.email };
+    const profile: UserProfile = { 
+      id: user.id, 
+      name: user.name, 
+      email: user.email,
+      lastLogin: new Date().toISOString() // Update login time
+    };
+    
+    // Update user record in storage with new login time
+    const updatedUsers = users.map(u => u.id === user.id ? { ...u, lastLogin: profile.lastLogin } : u);
+    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
     localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
+    
     return profile;
   },
 
