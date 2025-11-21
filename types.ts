@@ -31,11 +31,17 @@ export interface ReminderSettings {
   time: string;
 }
 
+export interface MemberHistoryEntry {
+  date: string;
+  count: number;
+}
+
 export interface Member {
   id: string;
   name: string;
   count: number;
   lastActive: string;
+  history?: MemberHistoryEntry[]; // Added for detailed logs
 }
 
 export interface Announcement {

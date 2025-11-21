@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Karma:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
@@ -75,6 +76,12 @@
         background-position: 0 0, 20px 20px;
         background-size: 40px 40px;
       }
+      
+      /* Dark mode pattern override */
+      .dark .bg-sacred-pattern {
+        background-color: #0c0a09; /* stone-950 */
+        background-image: radial-gradient(#292524 1px, transparent 1px), radial-gradient(#292524 1px, transparent 1px);
+      }
     </style>
   <script type="importmap">
 {
@@ -89,7 +96,7 @@
 }
 </script>
 </head>
-  <body class="bg-stone-50 text-stone-900 antialiased">
+  <body class="bg-stone-50 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100 transition-colors duration-300">
     <div id="root"></div>
   </body>
 </html>

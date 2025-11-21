@@ -82,7 +82,10 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold text-stone-800">Namaste, {currentUser.name.split(' ')[0]}</h2>
+          {/* UPDATED: Gold/Bright Orange Gradient */}
+          <h2 className="text-3xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-600 drop-shadow-sm">
+            Namaste, {currentUser.name.split(' ')[0]}
+          </h2>
           <p className="text-stone-500 mt-1 font-serif">Here is your spiritual progress today.</p>
         </div>
         <div className="flex gap-2">

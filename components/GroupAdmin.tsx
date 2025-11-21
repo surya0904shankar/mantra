@@ -133,38 +133,38 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
       {mode === 'CREATE' && (
         <div className="max-w-lg mx-auto animate-in slide-in-from-bottom-4 duration-300">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-display font-bold text-stone-800">Create Sankalpa Group</h2>
-            <button onClick={() => setMode('LIST')} className="text-sm text-stone-500 hover:text-stone-800 font-medium">Cancel</button>
+            <h2 className="text-2xl font-display font-bold text-stone-800 dark:text-stone-100">Create Sankalpa Group</h2>
+            <button onClick={() => setMode('LIST')} className="text-sm text-stone-500 hover:text-stone-800 dark:hover:text-stone-300 font-medium">Cancel</button>
           </div>
 
           <form onSubmit={handleCreateSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-stone-600 mb-2 uppercase tracking-wider">Group Name</label>
+              <label className="block text-sm font-bold text-stone-600 dark:text-stone-400 mb-2 uppercase tracking-wider">Group Name</label>
               <input
                 type="text"
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="e.g., Morning Peace Circle"
-                className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif"
+                className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-stone-600 mb-2 uppercase tracking-wider">Intention</label>
+              <label className="block text-sm font-bold text-stone-600 dark:text-stone-400 mb-2 uppercase tracking-wider">Intention</label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={intention}
                   onChange={(e) => setIntention(e.target.value)}
                   placeholder="e.g., Healing, Focus, Prosperity"
-                  className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif"
+                  className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                 />
                 <button
                   type="button"
                   onClick={handleGenerateMantras}
                   disabled={isGenerating || !intention}
-                  className="bg-saffron-100 text-saffron-700 px-4 rounded-xl hover:bg-saffron-200 disabled:opacity-50 whitespace-nowrap flex items-center gap-2 font-medium"
+                  className="bg-saffron-100 text-saffron-700 dark:bg-saffron-900/30 dark:text-saffron-300 px-4 rounded-xl hover:bg-saffron-200 dark:hover:bg-saffron-900/50 disabled:opacity-50 whitespace-nowrap flex items-center gap-2 font-medium"
                 >
                   {isGenerating ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}
                   AI Suggest
@@ -181,12 +181,12 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                     onClick={() => setSelectedSuggestion(s)}
                     className={`p-4 rounded-xl border cursor-pointer transition-all ${
                       selectedSuggestion === s 
-                        ? 'border-saffron-500 bg-saffron-50 shadow-md' 
-                        : 'border-stone-200 hover:border-saffron-300 hover:bg-stone-50'
+                        ? 'border-saffron-500 bg-saffron-50 dark:bg-saffron-900/20 shadow-md' 
+                        : 'border-stone-200 dark:border-stone-700 hover:border-saffron-300 hover:bg-stone-50 dark:hover:bg-stone-800'
                     }`}
                   >
-                    <p className="font-display font-bold text-stone-800 text-lg">{s.text}</p>
-                    <p className="text-sm text-stone-500 mt-1 italic font-serif">"{s.meaning}"</p>
+                    <p className="font-display font-bold text-stone-800 dark:text-stone-100 text-lg">{s.text}</p>
+                    <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 italic font-serif">"{s.meaning}"</p>
                   </div>
                 ))}
               </div>
@@ -195,7 +195,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
             <button
               type="submit"
               disabled={!newGroupName || !selectedSuggestion}
-              className="w-full bg-stone-900 text-white py-4 rounded-xl font-medium hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-display text-lg"
+              className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-medium hover:bg-stone-800 dark:hover:bg-stone-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-display text-lg"
             >
               Create Circle
             </button>
@@ -205,18 +205,18 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
 
       {mode === 'JOIN' && (
         <div className="max-w-md mx-auto animate-in slide-in-from-bottom-4 duration-300 pt-10">
-          <h2 className="text-2xl font-display font-bold text-stone-800 mb-6 text-center">Join a Circle</h2>
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
-              <label className="block text-sm font-medium text-stone-700 mb-2">Enter Group ID</label>
+          <h2 className="text-2xl font-display font-bold text-stone-800 dark:text-stone-100 mb-6 text-center">Join a Circle</h2>
+          <div className="bg-white dark:bg-stone-900 p-8 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800">
+              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">Enter Group ID</label>
               <input
                 type="text"
                 value={joinId}
                 onChange={(e) => setJoinId(e.target.value)}
                 placeholder="Paste ID here..."
-                className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-mystic-500 focus:outline-none mb-4"
+                className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-mystic-500 focus:outline-none mb-4 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
               />
               <div className="flex gap-3">
-                <button onClick={() => setMode('LIST')} className="flex-1 py-3 text-stone-500 font-medium hover:bg-stone-50 rounded-xl">
+                <button onClick={() => setMode('LIST')} className="flex-1 py-3 text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-xl font-medium">
                   Back
                 </button>
                 <button 
@@ -236,19 +236,19 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
         <>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
             <div>
-              <h2 className="text-2xl font-display font-bold text-stone-800">Your Sanghas</h2>
-              <p className="text-stone-500 text-sm font-serif">Manage your circles and shared practices.</p>
+              <h2 className="text-2xl font-display font-bold text-stone-800 dark:text-stone-100">Your Sanghas</h2>
+              <p className="text-stone-500 dark:text-stone-400 text-sm font-serif">Manage your circles and shared practices.</p>
             </div>
             <div className="flex gap-3 w-full sm:w-auto">
               <button 
                 onClick={() => setMode('JOIN')}
-                className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-stone-200 text-stone-700 rounded-xl font-medium hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-none px-5 py-2.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 rounded-xl font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-2"
               >
                 <Search size={18} /> Join
               </button>
               <button 
                 onClick={handleCreateClick}
-                className="flex-1 sm:flex-none px-5 py-2.5 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center justify-center gap-2 relative overflow-hidden shadow-lg shadow-stone-200"
+                className="flex-1 sm:flex-none px-5 py-2.5 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-medium hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors flex items-center justify-center gap-2 relative overflow-hidden shadow-lg shadow-stone-200 dark:shadow-none"
               >
                 <Plus size={18} /> Create
                 {!canCreateGroup && (
@@ -261,10 +261,10 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
           </div>
 
           {groups.length === 0 ? (
-            <div className="text-center py-20 bg-stone-50 border-2 border-dashed border-stone-200 rounded-2xl">
-              <Users className="mx-auto text-stone-300 mb-4" size={48} />
-              <p className="text-stone-500 font-medium font-serif">You haven't joined any groups yet.</p>
-              <p className="text-stone-400 text-sm mt-1">Create one or join a friend's circle.</p>
+            <div className="text-center py-20 bg-stone-50 dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
+              <Users className="mx-auto text-stone-300 dark:text-stone-600 mb-4" size={48} />
+              <p className="text-stone-500 dark:text-stone-400 font-medium font-serif">You haven't joined any groups yet.</p>
+              <p className="text-stone-400 dark:text-stone-500 text-sm mt-1">Create one or join a friend's circle.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -274,11 +274,11 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                 const isFull = !group.isPremium && group.members.length >= 25;
 
                 // Distinct styling for Admin vs Member groups
-                const cardBgClass = isAdmin ? 'bg-orange-50/50' : 'bg-indigo-50/40';
-                const cardBorderClass = isAdmin ? 'border-orange-200' : 'border-indigo-200';
+                const cardBgClass = isAdmin ? 'bg-orange-50/50 dark:bg-orange-900/20' : 'bg-indigo-50/40 dark:bg-indigo-900/20';
+                const cardBorderClass = isAdmin ? 'border-orange-200 dark:border-orange-800' : 'border-indigo-200 dark:border-indigo-800';
                 const badgeClass = isAdmin 
-                    ? 'bg-orange-100 text-orange-800' 
-                    : 'bg-indigo-100 text-indigo-800';
+                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200' 
+                    : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200';
 
                 return (
                   <div 
@@ -289,7 +289,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                       <div className="flex justify-between items-start mb-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-display font-bold text-xl text-stone-800 leading-tight">{group.name}</h3>
+                            <h3 className="font-display font-bold text-xl text-stone-800 dark:text-stone-100 leading-tight">{group.name}</h3>
                             <span className={`${badgeClass} text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1`}>
                                 {isAdmin ? <><Crown size={10} /> CREATOR</> : <><User size={10} /> MEMBER</>}
                             </span>
@@ -306,17 +306,17 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                         <div className="flex gap-1">
                           <button 
                             onClick={() => setNoticeBoardGroup(group)}
-                            className="text-stone-400 hover:text-mystic-600 transition-colors p-2 rounded-lg hover:bg-white relative"
+                            className="text-stone-400 hover:text-mystic-600 transition-colors p-2 rounded-lg hover:bg-white dark:hover:bg-stone-800 relative"
                             title="Notice Board"
                           >
                             <Bell size={16} />
                             {group.announcements && group.announcements.length > 0 && (
-                               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-stone-900"></span>
                             )}
                           </button>
                           <button 
                             onClick={() => copyToClipboard(group.id)}
-                            className="text-stone-400 hover:text-teal-600 transition-colors p-2 rounded-lg hover:bg-white"
+                            className="text-stone-400 hover:text-teal-600 transition-colors p-2 rounded-lg hover:bg-white dark:hover:bg-stone-800"
                             title="Copy ID to share"
                           >
                             {copiedId === group.id ? <Check size={16} className="text-green-600"/> : <Copy size={16} />}
@@ -324,13 +324,13 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                         </div>
                       </div>
                       
-                      <div className="mb-4 bg-white/60 p-3 rounded-lg border border-white">
-                        <p className="text-sm text-stone-700 italic font-serif">"{group.mantra.text}"</p>
+                      <div className="mb-4 bg-white/60 dark:bg-stone-900/60 p-3 rounded-lg border border-white dark:border-stone-800">
+                        <p className="text-sm text-stone-700 dark:text-stone-300 italic font-serif">"{group.mantra.text}"</p>
                       </div>
                     </div>
 
                     <div className="mt-2 flex flex-col gap-3">
-                      <div className="flex items-center justify-between text-xs text-stone-500">
+                      <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400">
                           <div className="flex items-center gap-2">
                             <Users size={14} />
                             <span>
@@ -343,7 +343,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                       
                       {/* Progress bar for member limit */}
                       {!group.isPremium && (
-                        <div className="w-full h-1 bg-stone-200 rounded-full overflow-hidden">
+                        <div className="w-full h-1 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full ${isFull ? 'bg-red-400' : isNearLimit ? 'bg-orange-400' : 'bg-stone-400'}`}
                             style={{ width: `${(group.members.length / 25) * 100}%` }}
@@ -354,13 +354,13 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                         <div className="flex gap-2 mt-1">
                           <button
                             onClick={() => setAnalyzingGroup(group)}
-                            className="flex-1 bg-white border border-stone-200 text-stone-600 text-sm font-medium py-2.5 rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center gap-1"
+                            className="flex-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 text-sm font-medium py-2.5 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-1"
                           >
                             <BarChart3 size={16} /> Stats
                           </button>
                           <button 
                             onClick={() => onSelectGroup(group)}
-                            className="flex-1 bg-stone-900 text-white font-medium text-sm py-2.5 rounded-xl flex items-center justify-center gap-1 hover:bg-stone-800 transition-all shadow-md shadow-stone-200"
+                            className="flex-1 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-medium text-sm py-2.5 rounded-xl flex items-center justify-center gap-1 hover:bg-stone-800 dark:hover:bg-stone-200 transition-all shadow-md shadow-stone-200 dark:shadow-none"
                           >
                             Practice <ArrowRight size={16} />
                           </button>
