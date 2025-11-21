@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
 import StatsDashboard from './components/StatsDashboard';
@@ -9,24 +8,16 @@ import AuthScreen from './components/AuthScreen';
 import { authService } from './services/auth';
 import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock } from 'lucide-react';
 
-// Navigation Button Component for Sidebar
-// UPDATED: Adjusted flex classes for responsive behavior. 
-// Mobile: Column (Icon top, text bottom)
-// Tablet (md): Column (Icon only, text hidden to fit w-20)
-// Desktop (lg): Row (Icon left, text right)
+// Navigation Button Component using CSS classes from styles.css
 const NavButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) => (
   <button 
     onClick={onClick}
-    className={`flex md:w-full flex-col md:items-center lg:flex-row lg:justify-start lg:gap-3 p-2 md:py-4 lg:px-4 rounded-xl transition-all duration-200 group ${
-      active 
-        ? 'text-saffron-600 dark:text-saffron-400 bg-saffron-50 dark:bg-saffron-900/20 font-bold' 
-        : 'text-stone-400 dark:text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800'
-    }`}
+    className={`nav-btn ${active ? 'active' : ''}`}
   >
-    <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+    <div className="nav-icon-wrapper">
       {icon}
     </div>
-    <span className={`text-[10px] md:hidden lg:block lg:text-sm font-medium lg:font-semibold mt-1 lg:mt-0 ${active ? '' : 'font-normal'}`}>{label}</span>
+    <span className="nav-label">{label}</span>
   </button>
 );
 
@@ -502,21 +493,17 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Sidebar Navigation */}
-      {/* Responsive adjustments: 
-          - md:w-20 (tablet): Thin sidebar, hidden labels
-          - lg:w-64 (desktop): Wide sidebar, visible labels
-      */}
-      <nav className="bg-white dark:bg-stone-900 md:w-20 lg:w-64 md:border-r border-t md:border-t-0 border-stone-200 dark:border-stone-800 flex md:flex-col justify-between z-10 fixed bottom-0 w-full md:relative md:h-screen pb-safe shadow-[0_0_20px_rgba(0,0,0,0.03)] transition-colors duration-300">
+      {/* Sidebar Navigation - Replaced classes with styles.css classes */}
+      <nav className="sidebar-nav">
         
-        <div className="flex md:flex-col justify-around md:justify-start w-full md:space-y-2 md:p-4">
+        <div className="sidebar-container">
           
-          {/* Logo Area - Desktop */}
-          <div className="hidden md:flex items-center justify-center lg:justify-start lg:gap-3 px-0 lg:px-4 py-6 mb-4">
+          {/* Logo Area - Tablet & Desktop */}
+          <div className="brand-logo">
             <div className="w-10 h-10 bg-gradient-to-br from-saffron-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-none text-white font-display font-bold text-xl flex-shrink-0">
               OM
             </div>
-            <span className="font-display font-bold text-xl text-stone-800 dark:text-stone-100 tracking-tight hidden lg:block">OmCounter</span>
+            <span className="font-display font-bold text-xl text-stone-800 dark:text-stone-100 tracking-tight brand-text">OmCounter</span>
           </div>
 
           {/* Nav Items */}
@@ -546,9 +533,9 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Upgrade Widget - Only Visible on Large Screens to prevent cut-off on tablets/mobile */}
+        {/* Upgrade Widget - Only Visible on Large Screens */}
         {!userStats.isPremium && (
-            <div className="hidden lg:block p-4 m-4 rounded-2xl bg-gradient-to-br from-saffron-50 to-orange-50 dark:from-stone-800 dark:to-stone-800 border border-saffron-100 dark:border-stone-700 relative overflow-hidden group cursor-pointer" onClick={() => setShowSubscriptionModal(true)}>
+            <div className="upgrade-widget p-4 m-4 rounded-2xl bg-gradient-to-br from-saffron-50 to-orange-50 dark:from-stone-800 dark:to-stone-800 border border-saffron-100 dark:border-stone-700 relative overflow-hidden group cursor-pointer" onClick={() => setShowSubscriptionModal(true)}>
                 <div className="absolute -right-2 -top-2 w-12 h-12 bg-saffron-100 dark:bg-stone-700 rounded-full opacity-50 group-hover:scale-150 transition-transform"></div>
                 <h4 className="font-bold text-stone-800 dark:text-stone-100 font-serif relative z-10 mb-1">Go Premium</h4>
                 <p className="text-xs text-stone-500 dark:text-stone-400 relative z-10 mb-3">Unlock stats & unlimited groups.</p>

@@ -78,7 +78,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     required
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                     placeholder="Enter your name"
                   />
                 </div>
@@ -94,7 +94,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   required
                   value={formData.email}
                   onChange={e => setFormData({...formData, email: e.target.value})}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                   placeholder="hello@example.com"
                 />
               </div>
@@ -109,7 +109,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   required
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                   placeholder="••••••••"
                 />
               </div>

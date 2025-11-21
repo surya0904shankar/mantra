@@ -78,7 +78,7 @@ const NoticeBoardModal: React.FC<NoticeBoardModalProps> = ({ isOpen, onClose, an
                 value={newAnnouncement}
                 onChange={(e) => setNewAnnouncement(e.target.value)}
                 placeholder="Share a message with the sangha..."
-                className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-mystic-400 text-sm bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                className="flex-1 px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:outline-none focus:ring-2 focus:ring-mystic-400 text-sm bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
               />
               <button 
                 type="submit"
