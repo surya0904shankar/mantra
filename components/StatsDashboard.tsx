@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { UserStats, Group, UserProfile } from '../types';
@@ -9,9 +8,10 @@ interface StatsDashboardProps {
   userStats: UserStats;
   groups: Group[];
   currentUser: UserProfile;
+  onUpgradeClick: () => void;
 }
 
-const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, currentUser }) => {
+const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, currentUser, onUpgradeClick }) => {
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
@@ -37,7 +37,10 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
   };
 
   const downloadCSV = () => {
-    if (!userStats.isPremium) return;
+    if (!userStats.isPremium) {
+      onUpgradeClick();
+      return;
+    }
 
     const now = new Date();
     
@@ -82,8 +85,8 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          {/* UPDATED: Using custom CSS class from styles.css */}
-          <h2 className="text-3xl font-display font-bold namaste-text drop-shadow-sm">
+          {/* UPDATED: Gold/Bright Orange Gradient */}
+          <h2 className="text-3xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-600 drop-shadow-sm">
             Namaste, {currentUser.name.split(' ')[0]}
           </h2>
           <p className="text-stone-500 mt-1 font-serif">Here is your spiritual progress today.</p>
@@ -91,7 +94,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
         <div className="flex gap-2">
              <button 
                 onClick={downloadCSV}
-                className={`px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-medium transition-all border ${userStats.isPremium ? 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200' : 'bg-stone-100 text-stone-400 cursor-not-allowed border-transparent'}`}
+                className={`px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-medium transition-all border ${userStats.isPremium ? 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200' : 'bg-stone-100 text-stone-500 hover:bg-stone-200 border-transparent'}`}
                 title={userStats.isPremium ? "Download Report" : "Upgrade to download stats"}
              >
                {userStats.isPremium ? <Download size={16} /> : <Lock size={16} />}

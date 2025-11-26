@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
 import StatsDashboard from './components/StatsDashboard';
@@ -8,16 +9,20 @@ import AuthScreen from './components/AuthScreen';
 import { authService } from './services/auth';
 import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock } from 'lucide-react';
 
-// Navigation Button Component using CSS classes from styles.css
+// Navigation Button Component for Sidebar
 const NavButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) => (
   <button 
     onClick={onClick}
-    className={`nav-btn ${active ? 'active' : ''}`}
+    className={`flex md:w-full flex-col md:items-center lg:flex-row lg:justify-start lg:gap-3 p-2 md:py-4 lg:px-4 rounded-xl transition-all duration-200 group ${
+      active 
+        ? 'text-saffron-600 dark:text-saffron-400 bg-saffron-50 dark:bg-saffron-900/20 font-bold' 
+        : 'text-stone-400 dark:text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800'
+    }`}
   >
-    <div className="nav-icon-wrapper">
+    <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
       {icon}
     </div>
-    <span className="nav-label">{label}</span>
+    <span className={`text-[10px] md:hidden lg:block lg:text-sm font-medium lg:font-semibold mt-1 lg:mt-0 ${active ? '' : 'font-normal'}`}>{label}</span>
   </button>
 );
 
@@ -81,11 +86,19 @@ const App: React.FC = () => {
     localStorage.setItem('om_theme', theme);
   }, [theme]);
   
-  // Check for existing session
+  // Check for existing session (Async for Supabase)
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    setIsAuthChecking(false);
+    const initAuth = async () => {
+        try {
+            const user = await authService.getCurrentUser();
+            setCurrentUser(user);
+        } catch (error) {
+            console.error("Auth initialization error:", error);
+        } finally {
+            setIsAuthChecking(false);
+        }
+    };
+    initAuth();
   }, []);
 
   // Load User Data when currentUser changes
@@ -325,8 +338,8 @@ const App: React.FC = () => {
     setShowSubscriptionModal(false);
   };
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    await authService.logout();
     setCurrentUser(null);
     setShowSettings(false);
     setCurrentView(View.DASHBOARD);
@@ -347,7 +360,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentView) {
       case View.DASHBOARD:
-        return <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} />;
+        return <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} onUpgradeClick={() => setShowSubscriptionModal(true)} />;
       case View.GROUPS:
       case View.CREATE_GROUP:
         return (
@@ -373,7 +386,7 @@ const App: React.FC = () => {
           />
         );
       default:
-        return <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} />;
+        return <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} onUpgradeClick={() => setShowSubscriptionModal(true)} />;
     }
   };
 
@@ -493,17 +506,17 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Sidebar Navigation - Replaced classes with styles.css classes */}
-      <nav className="sidebar-nav">
+      {/* Sidebar Navigation */}
+      <nav className="bg-white dark:bg-stone-900 md:w-20 lg:w-64 md:border-r border-t md:border-t-0 border-stone-200 dark:border-stone-800 flex md:flex-col justify-between z-10 fixed bottom-0 w-full md:relative md:h-screen pb-safe shadow-[0_0_20px_rgba(0,0,0,0.03)] transition-colors duration-300">
         
-        <div className="sidebar-container">
+        <div className="flex md:flex-col justify-around md:justify-start w-full md:space-y-2 md:p-4">
           
-          {/* Logo Area - Tablet & Desktop */}
-          <div className="brand-logo">
+          {/* Logo Area - Desktop */}
+          <div className="hidden md:flex items-center justify-center lg:justify-start lg:gap-3 px-0 lg:px-4 py-6 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-saffron-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-none text-white font-display font-bold text-xl flex-shrink-0">
               OM
             </div>
-            <span className="font-display font-bold text-xl text-stone-800 dark:text-stone-100 tracking-tight brand-text">OmCounter</span>
+            <span className="font-display font-bold text-xl text-stone-800 dark:text-stone-100 tracking-tight hidden lg:block">OmCounter</span>
           </div>
 
           {/* Nav Items */}
@@ -535,7 +548,7 @@ const App: React.FC = () => {
 
         {/* Upgrade Widget - Only Visible on Large Screens */}
         {!userStats.isPremium && (
-            <div className="upgrade-widget p-4 m-4 rounded-2xl bg-gradient-to-br from-saffron-50 to-orange-50 dark:from-stone-800 dark:to-stone-800 border border-saffron-100 dark:border-stone-700 relative overflow-hidden group cursor-pointer" onClick={() => setShowSubscriptionModal(true)}>
+            <div className="hidden lg:block p-4 m-4 rounded-2xl bg-gradient-to-br from-saffron-50 to-orange-50 dark:from-stone-800 dark:to-stone-800 border border-saffron-100 dark:border-stone-700 relative overflow-hidden group cursor-pointer" onClick={() => setShowSubscriptionModal(true)}>
                 <div className="absolute -right-2 -top-2 w-12 h-12 bg-saffron-100 dark:bg-stone-700 rounded-full opacity-50 group-hover:scale-150 transition-transform"></div>
                 <h4 className="font-bold text-stone-800 dark:text-stone-100 font-serif relative z-10 mb-1">Go Premium</h4>
                 <p className="text-xs text-stone-500 dark:text-stone-400 relative z-10 mb-3">Unlock stats & unlimited groups.</p>

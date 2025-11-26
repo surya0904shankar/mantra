@@ -1,82 +1,83 @@
 
+import { supabase } from '../lib/supabaseClient'; 
 import { UserProfile } from '../types';
 
-const USERS_KEY = 'om_users';
-const SESSION_KEY = 'om_session';
-
-interface StoredUser extends UserProfile {
-  passwordHash: string; // In a real app, never store plain text, here we simulate
-}
-
 export const authService = {
-  // Simulate network delay
-  delay: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
-
-  async register(name: string, email: string, password: string): Promise<UserProfile> {
-    await this.delay(800);
-    
-    const usersStr = localStorage.getItem(USERS_KEY);
-    const users: StoredUser[] = usersStr ? JSON.parse(usersStr) : [];
-
-    if (users.find(u => u.email === email)) {
-      throw new Error("Email already registered");
-    }
-
-    const newUser: StoredUser = {
-      id: crypto.randomUUID(),
-      name,
-      email,
-      lastLogin: new Date().toISOString(),
-      passwordHash: btoa(password) // Simple encoding for demo purposes
-    };
-
-    users.push(newUser);
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    
-    // Auto login
-    const profile: UserProfile = { 
-      id: newUser.id, 
-      name: newUser.name, 
-      email: newUser.email,
-      lastLogin: newUser.lastLogin 
-    };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
-    return profile;
+  async loginWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) throw error;
+    return data;
   },
 
   async login(email: string, password: string): Promise<UserProfile> {
-    await this.delay(800);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    const usersStr = localStorage.getItem(USERS_KEY);
-    const users: StoredUser[] = usersStr ? JSON.parse(usersStr) : [];
+    if (error) throw error;
+    if (!data.user) throw new Error("Login failed");
+
+    // Fetch profile details
+    return await this.fetchUserProfile(data.user);
+  },
+
+  async register(name: string, email: string, password: string): Promise<UserProfile> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name
+        }
+      }
+    });
     
-    const user = users.find(u => u.email === email && u.passwordHash === btoa(password));
+    if (error) throw error;
+    if (!data.user) throw new Error("Registration failed. Please check your email for verification.");
 
-    if (!user) {
-      throw new Error("Invalid email or password");
-    }
-
-    const profile: UserProfile = { 
-      id: user.id, 
-      name: user.name, 
-      email: user.email,
-      lastLogin: new Date().toISOString() // Update login time
+    // Note: If email confirmation is enabled in Supabase, the user won't be able to sign in immediately.
+    // For this app, we assume we return the basic profile.
+    return {
+      id: data.user.id,
+      name: name,
+      email: email,
+      lastLogin: new Date().toISOString()
     };
-    
-    // Update user record in storage with new login time
-    const updatedUsers = users.map(u => u.id === user.id ? { ...u, lastLogin: profile.lastLogin } : u);
-    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
-    localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
-    
-    return profile;
   },
 
-  logout() {
-    localStorage.removeItem(SESSION_KEY);
+  async logout() {
+    await supabase.auth.signOut();
+    localStorage.removeItem('om_session');
   },
 
-  getCurrentUser(): UserProfile | null {
-    const sessionStr = localStorage.getItem(SESSION_KEY);
-    return sessionStr ? JSON.parse(sessionStr) : null;
+  async getCurrentUser(): Promise<UserProfile | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+    
+    return await this.fetchUserProfile(session.user);
+  },
+
+  // Helper to fetch/construct profile from DB
+  async fetchUserProfile(user: any): Promise<UserProfile> {
+    // Try to get extended profile data from the 'profiles' table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    return {
+      id: user.id,
+      // Use profile name if available, otherwise metadata from Google, otherwise email
+      name: profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Meditator',
+      email: user.email!,
+      lastLogin: profile?.last_login || new Date().toISOString()
+    };
   }
 };

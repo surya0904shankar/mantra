@@ -158,7 +158,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                             onChange={handleInputChange}
                             placeholder="Name on card"
                             required
-                            className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                            className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                         />
                     </div>
 
@@ -174,7 +174,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                                 placeholder="0000 0000 0000 0000"
                                 maxLength={19}
                                 required
-                                className="w-full pl-10 p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow font-mono bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                                className="w-full pl-10 p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow font-mono bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                             />
                         </div>
                     </div>
@@ -190,7 +190,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                                 placeholder="MM/YY"
                                 maxLength={5}
                                 required
-                                className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow font-mono text-center bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                                className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow font-mono text-center bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                             />
                         </div>
                         <div className="space-y-1 flex-1">
@@ -205,7 +205,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                                     placeholder="123"
                                     maxLength={4}
                                     required
-                                    className="w-full pl-9 p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow font-mono bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                                    className="w-full pl-9 p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-stone-400 focus:outline-none transition-shadow font-mono bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                                 />
                             </div>
                         </div>

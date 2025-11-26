@@ -145,7 +145,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="e.g., Morning Peace Circle"
-                className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                 required
               />
             </div>
@@ -158,7 +158,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                   value={intention}
                   onChange={(e) => setIntention(e.target.value)}
                   placeholder="e.g., Healing, Focus, Prosperity"
-                  className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                  className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                 />
                 <button
                   type="button"
@@ -213,7 +213,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                 value={joinId}
                 onChange={(e) => setJoinId(e.target.value)}
                 placeholder="Paste ID here..."
-                className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-mystic-500 focus:outline-none mb-4 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-mystic-500 focus:outline-none mb-4 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
               />
               <div className="flex gap-3">
                 <button onClick={() => setMode('LIST')} className="flex-1 py-3 text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-xl font-medium">
