@@ -10,6 +10,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Karma:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script>
+      // Critical Shim: Define process.env to prevent crashes in browser environments
+      window.process = {
+        env: {
+          NODE_ENV: 'development',
+          API_KEY: '' // This prevents immediate access crashes
+        }
+      };
+    </script>
+    <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
@@ -87,7 +96,8 @@
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
@@ -95,7 +105,8 @@
     "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.4"
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
   }
 }
 </script>
