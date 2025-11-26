@@ -1,21 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { Mantra, UserStats } from "../types";
 
-// Helper to safely access process.env
-const getEnv = (key: string) => {
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env[key];
-  }
-  return undefined;
-};
-
-// Initialize Gemini Client
-const apiKey = getEnv('API_KEY') || '';
-// We initialize safely; calls will fail gracefully if key is missing rather than crashing app load
-const ai = new GoogleGenAI({ apiKey });
+// Initialize Gemini Client using process.env.API_KEY as per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getMantraSuggestions = async (intention: string): Promise<Partial<Mantra>[]> => {
-  if (!apiKey) {
+  if (!process.env.API_KEY) {
     console.warn("Gemini API Key missing");
     return [];
   }
@@ -46,7 +36,7 @@ export const getMantraSuggestions = async (intention: string): Promise<Partial<M
 };
 
 export const getMantraInsight = async (mantraText: string): Promise<string> => {
-  if (!apiKey) return "AI insights require an API Key.";
+  if (!process.env.API_KEY) return "AI insights require an API Key.";
   
   try {
     const prompt = `
@@ -67,7 +57,7 @@ export const getMantraInsight = async (mantraText: string): Promise<string> => {
 };
 
 export const analyzeChantingHabits = async (stats: UserStats): Promise<string> => {
-  if (!apiKey) return "Connect API Key for personalized guidance.";
+  if (!process.env.API_KEY) return "Connect API Key for personalized guidance.";
 
   try {
     const breakdownStr = stats.mantraBreakdown
