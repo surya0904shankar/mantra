@@ -41,8 +41,6 @@ export const authService = {
     if (error) throw error;
     if (!data.user) throw new Error("Registration failed. Please check your email for verification.");
 
-    // Note: If email confirmation is enabled in Supabase, the user won't be able to sign in immediately.
-    // For this app, we assume we return the basic profile.
     return {
       id: data.user.id,
       name: name,
@@ -57,6 +55,7 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<UserProfile | null> {
+    // v2 session retrieval
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return null;
     
