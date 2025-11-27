@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Group, Mantra } from '../types';
 import { Plus, Users, Search, Sparkles, Copy, Check, ArrowRight, BarChart3, Lock, Bell, Crown, User, Star } from 'lucide-react';
-import { getMantraSuggestions } from '../services/geminiService';
+import { getMantraSuggestions, getGroupDescriptionSuggestion } from '../services/geminiService';
 import GroupAnalytics from './GroupAnalytics';
 import NoticeBoardModal from './NoticeBoardModal';
 
@@ -37,9 +37,11 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
   // Create Form State
   const [newGroupName, setNewGroupName] = useState('');
   const [intention, setIntention] = useState('');
+  const [description, setDescription] = useState('');
   const [suggestions, setSuggestions] = useState<Partial<Mantra>[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Partial<Mantra> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
 
   // Join Form State
   const [joinId, setJoinId] = useState('');
@@ -57,6 +59,14 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
     setIsGenerating(false);
   };
 
+  const handleGenerateDescription = async () => {
+    if (!intention || !selectedSuggestion?.text) return;
+    setIsGeneratingDesc(true);
+    const desc = await getGroupDescriptionSuggestion(intention, selectedSuggestion.text);
+    setDescription(desc);
+    setIsGeneratingDesc(false);
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canCreateGroup) {
@@ -68,7 +78,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
     const newGroup: Group = {
       id: crypto.randomUUID().slice(0, 8),
       name: newGroupName,
-      description: intention,
+      description: description || intention,
       mantra: {
         id: crypto.randomUUID(),
         text: selectedSuggestion.text!,
@@ -87,6 +97,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
     // Reset form
     setNewGroupName('');
     setIntention('');
+    setDescription('');
     setSuggestions([]);
     setSelectedSuggestion(null);
   };
@@ -131,7 +142,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
       )}
 
       {mode === 'CREATE' && (
-        <div className="max-w-lg mx-auto animate-in slide-in-from-bottom-4 duration-300">
+        <div className="max-w-lg mx-auto animate-in slide-in-from-bottom-4 duration-300 pb-10">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-display font-bold text-stone-800 dark:text-stone-100">Create Sankalpa Group</h2>
             <button onClick={() => setMode('LIST')} className="text-sm text-stone-500 hover:text-stone-800 dark:hover:text-stone-300 font-medium">Cancel</button>
@@ -151,7 +162,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-stone-600 dark:text-stone-400 mb-2 uppercase tracking-wider">Intention</label>
+              <label className="block text-sm font-bold text-stone-600 dark:text-stone-400 mb-2 uppercase tracking-wider">Intention (For Mantra)</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -167,7 +178,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                   className="bg-saffron-100 text-saffron-700 dark:bg-saffron-900/30 dark:text-saffron-300 px-4 rounded-xl hover:bg-saffron-200 dark:hover:bg-saffron-900/50 disabled:opacity-50 whitespace-nowrap flex items-center gap-2 font-medium"
                 >
                   {isGenerating ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}
-                  AI Suggest
+                  Suggest
                 </button>
               </div>
             </div>
@@ -192,10 +203,35 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
               </div>
             )}
 
+            {/* Description Field with AI */}
+            <div>
+               <label className="block text-sm font-bold text-stone-600 dark:text-stone-400 mb-2 uppercase tracking-wider">Description</label>
+               <div className="flex gap-2">
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe the purpose of this group..."
+                    className="w-full p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white h-24 resize-none"
+                  />
+                  {selectedSuggestion && intention && (
+                     <button
+                       type="button"
+                       onClick={handleGenerateDescription}
+                       disabled={isGeneratingDesc}
+                       className="bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300 px-3 rounded-xl hover:bg-stone-200 dark:hover:bg-stone-700 disabled:opacity-50 flex flex-col items-center justify-center gap-1 w-20"
+                       title="Auto-generate description"
+                     >
+                        {isGeneratingDesc ? <span className="animate-spin">✨</span> : <Sparkles size={18} />}
+                        <span className="text-[10px] font-bold">AI Write</span>
+                     </button>
+                  )}
+               </div>
+            </div>
+
             <button
               type="submit"
               disabled={!newGroupName || !selectedSuggestion}
-              className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-medium hover:bg-stone-800 dark:hover:bg-stone-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-display text-lg"
+              className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-medium hover:bg-stone-800 dark:hover:bg-stone-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-display text-lg shadow-lg shadow-stone-200 dark:shadow-none"
             >
               Create Circle
             </button>

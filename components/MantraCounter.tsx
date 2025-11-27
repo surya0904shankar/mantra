@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Play, Plus, RotateCcw, BookOpen, Loader2, Edit2, Check, ChevronDown, Save } from 'lucide-react';
+import { Plus, RotateCcw, BookOpen, Loader2, Edit2, Check, ChevronDown, Save, X } from 'lucide-react';
 import { Group, Mantra } from '../types';
 import { getMantraInsight } from '../services/geminiService';
 
@@ -206,49 +206,53 @@ const MantraCounter: React.FC<MantraCounterProps> = ({ activeGroup, personalMant
                <Edit2 size={16} /> Add Bulk
              </button>
            ) : (
-             <div className="flex-1 flex gap-2 animate-in fade-in">
+             <div className="w-full flex gap-2 animate-in fade-in">
                <input 
                  type="number" 
                  value={manualInput}
                  onChange={(e) => setManualInput(e.target.value)}
-                 placeholder="Qty"
-                 className="w-full px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                 placeholder="Enter quantity..."
+                 className="flex-1 px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-600 focus:ring-2 focus:ring-saffron-400 focus:outline-none font-serif bg-white dark:bg-stone-800 text-stone-900 dark:text-white text-lg"
                  autoFocus
                />
                <button 
                  onClick={handleManualSubmit}
-                 className="bg-saffron-500 hover:bg-saffron-600 text-white px-4 rounded-xl"
+                 className="bg-saffron-500 hover:bg-saffron-600 text-white px-5 rounded-xl flex items-center justify-center"
                >
-                 <Check size={20} />
+                 <Check size={24} />
                </button>
                <button 
                  onClick={() => setIsManualMode(false)}
-                 className="bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 px-4 rounded-xl"
+                 className="bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 px-5 rounded-xl flex items-center justify-center"
                >
-                 X
+                 <X size={24} />
                </button>
              </div>
            )}
 
-           {/* Commit / Finish Session Button */}
-           <button 
-              onClick={handleFinishSession}
-              disabled={sessionCount === 0 || isCommitting}
-              className="flex-1 bg-gradient-to-r from-mystic-600 to-mystic-700 hover:from-mystic-700 hover:to-mystic-800 text-white py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-mystic-200 dark:shadow-none font-serif"
-              title="Finish session and add to total"
-           >
-             <Save size={18} /> Finish
-           </button>
+           {/* Commit / Finish Session Button - HIDDEN DURING MANUAL MODE */}
+           {!isManualMode && (
+             <>
+               <button 
+                  onClick={handleFinishSession}
+                  disabled={sessionCount === 0 || isCommitting}
+                  className="flex-1 bg-gradient-to-r from-mystic-600 to-mystic-700 hover:from-mystic-700 hover:to-mystic-800 text-white py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-mystic-200 dark:shadow-none font-serif"
+                  title="Finish session and add to total"
+               >
+                 <Save size={18} /> Finish
+               </button>
 
-           {/* Reset (hidden behind Finish mainly, but kept for errors) */}
-           <button 
-              onClick={() => setSessionCount(0)}
-              disabled={isCommitting}
-              className="w-12 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-stone-400 hover:text-red-500 py-3 rounded-xl font-medium transition-colors flex items-center justify-center"
-              title="Reset Session to 0 (Discard)"
-           >
-             <RotateCcw size={18} />
-           </button>
+               {/* Reset (hidden behind Finish mainly, but kept for errors) */}
+               <button 
+                  onClick={() => setSessionCount(0)}
+                  disabled={isCommitting}
+                  className="w-12 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-stone-400 hover:text-red-500 py-3 rounded-xl font-medium transition-colors flex items-center justify-center"
+                  title="Reset Session to 0 (Discard)"
+               >
+                 <RotateCcw size={18} />
+               </button>
+             </>
+           )}
         </div>
       </div>
     </div>

@@ -85,6 +85,40 @@ const App: React.FC = () => {
     }
     localStorage.setItem('om_theme', theme);
   }, [theme]);
+
+  // Reminder Logic Loop (Runs every second to check time)
+  useEffect(() => {
+    let lastTriggeredTime = '';
+
+    const checkReminder = () => {
+      if (!reminder.enabled || !reminder.time) return;
+
+      const now = new Date();
+      // Manually construct HH:MM to ensure 24h format matching regardless of locale
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${hours}:${minutes}`;
+
+      // Trigger only once per minute
+      if (currentTime === reminder.time && currentTime !== lastTriggeredTime) {
+        lastTriggeredTime = currentTime;
+        
+        if (Notification.permission === 'granted') {
+           try {
+             new Notification("OmCounter Reminder", {
+                body: `It is ${currentTime}. Time for your spiritual practice.`,
+                icon: '/vite.svg' // Uses default favicon if available
+             });
+           } catch (e) {
+             console.error("Notification failed", e);
+           }
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkReminder, 1000); // Check every second to be precise
+    return () => clearInterval(intervalId);
+  }, [reminder]);
   
   // Check for existing session (Async for Supabase)
   useEffect(() => {
@@ -109,33 +143,8 @@ const App: React.FC = () => {
       if (savedGroups) {
         setGroups(JSON.parse(savedGroups));
       } else {
-        // Default groups if none exist
-         const demoGroup: Group = {
-            id: 'demo-123',
-            name: 'Global Peace Circle',
-            description: 'Chanting for universal harmony',
-            mantra: {
-                id: 'm-1',
-                text: 'Lokah Samastah Sukhino Bhavantu',
-                meaning: 'May all beings everywhere be happy and free...',
-                targetCount: 108
-            },
-            adminId: 'system',
-            members: [
-                { id: 'u2', name: 'Alice', count: 1200, lastActive: new Date().toISOString() },
-                { id: 'u3', name: 'Bob', count: 890, lastActive: new Date().toISOString() }
-            ],
-            totalGroupCount: 2090,
-            announcements: [
-                { id: 'a1', text: 'Welcome to the Global Peace Circle! Let us chant for harmony.', date: new Date().toISOString(), authorName: 'System' }
-            ],
-            isPremium: true // System group is premium
-        };
-        // Add current user to demo group if not there
-        if (!demoGroup.members.find(m => m.id === currentUser.id)) {
-            demoGroup.members.push({ id: currentUser.id, name: currentUser.name, count: 0, lastActive: new Date().toISOString() });
-        }
-        setGroups([demoGroup]);
+        // No default group loaded, start fresh
+        setGroups([]);
       }
 
       // 2. Load Personal Stats
@@ -499,7 +508,7 @@ const App: React.FC = () => {
                 </button>
                 
                 <div className="pt-4 border-t border-stone-100 dark:border-stone-700">
-                    <p className="text-xs text-center text-stone-400 font-serif">OmCounter v1.3</p>
+                    <p className="text-xs text-center text-stone-400 font-serif">OmCounter v1.4</p>
                 </div>
              </div>
           </div>
@@ -534,7 +543,11 @@ const App: React.FC = () => {
           />
            <NavButton 
              active={currentView === View.COUNTER} 
-             onClick={() => setCurrentView(View.COUNTER)}
+             onClick={() => {
+                // Explicitly switch to PERSONAL practice mode
+                setActiveGroup(null);
+                setCurrentView(View.COUNTER);
+             }}
              icon={<Flower2 size={24} />}
              label="Practice"
           />

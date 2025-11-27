@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Mantra, UserStats } from "../types";
 
@@ -32,6 +33,29 @@ export const getMantraSuggestions = async (intention: string): Promise<Partial<M
   } catch (error) {
     console.error("Error fetching mantra suggestions:", error);
     return [];
+  }
+};
+
+export const getGroupDescriptionSuggestion = async (intention: string, mantra: string): Promise<string> => {
+  if (!process.env.API_KEY) return "";
+  
+  try {
+    const prompt = `
+      Write a short, inspiring description (1-2 sentences) for a spiritual chanting group.
+      Intention: "${intention}".
+      Mantra: "${mantra}".
+      Tone: Welcoming, sacred, communal.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text?.trim() || "";
+  } catch (error) {
+    console.error("Error generating group description:", error);
+    return "";
   }
 };
 
