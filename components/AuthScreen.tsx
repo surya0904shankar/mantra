@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { authService } from '../services/auth';
 import { UserProfile } from '../types';
-import { Loader2, ArrowRight, Mail, Lock, User } from 'lucide-react';
+import { Loader2, ArrowRight, Mail, Lock, User, CheckCircle } from 'lucide-react';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserProfile) => void;
@@ -12,6 +12,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -28,11 +29,18 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       let user;
       if (isLogin) {
         user = await authService.login(formData.email, formData.password);
+        if (user) onAuthSuccess(user);
       } else {
         if (!formData.name) throw new Error("Name is required");
         user = await authService.register(formData.name, formData.email, formData.password);
+        
+        if (user) {
+            onAuthSuccess(user);
+        } else {
+            // User created but needs verification
+            setVerificationSent(true);
+        }
       }
-      if (user) onAuthSuccess(user);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
     } finally {
@@ -52,6 +60,28 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     }
   };
 
+  if (verificationSent) {
+      return (
+        <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex items-center justify-center p-4 transition-colors duration-300">
+          <div className="bg-white dark:bg-stone-900 w-full max-w-md rounded-3xl shadow-xl overflow-hidden border border-stone-100 dark:border-stone-800 animate-in fade-in zoom-in-95 duration-500 p-10 text-center">
+             <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 dark:text-green-400">
+                <CheckCircle size={32} />
+             </div>
+             <h2 className="text-2xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-2">Check your Inbox</h2>
+             <p className="text-stone-500 dark:text-stone-400 mb-8">
+                We have sent a verification link to <span className="font-bold text-stone-700 dark:text-stone-300">{formData.email}</span>. Please verify your email to unlock your sacred space.
+             </p>
+             <button 
+                onClick={() => { setVerificationSent(false); setIsLogin(true); }}
+                className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-3 rounded-xl font-bold hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors"
+             >
+                Return to Login
+             </button>
+          </div>
+        </div>
+      )
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex items-center justify-center p-4 transition-colors duration-300">
       <div className="bg-white dark:bg-stone-900 w-full max-w-md rounded-3xl shadow-xl overflow-hidden border border-stone-100 dark:border-stone-800 animate-in fade-in zoom-in-95 duration-500">
@@ -69,7 +99,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             type="button"
             onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="w-full bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 py-3 rounded-xl font-bold hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors flex items-center justify-center gap-3 mb-6 shadow-sm"
+            className="w-full bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 py-3 rounded-xl font-bold hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors flex items-center justify-center gap-3 mb-2 shadow-sm"
           >
              {/* Google Icon SVG */}
             <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -80,6 +110,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             </svg>
             Sign in with Google
           </button>
+          
+          <p className="text-[10px] text-center text-stone-400 mb-6">
+            If preview blocks Google Login, please open app in a <a href={window.location.href} target="_blank" rel="noreferrer" className="underline hover:text-stone-600">New Tab</a>.
+          </p>
 
           <div className="flex items-center gap-4 mb-6">
             <div className="h-px bg-stone-200 dark:bg-stone-700 flex-1"></div>

@@ -27,7 +27,7 @@ export const authService = {
     return await this.fetchUserProfile(data.user);
   },
 
-  async register(name: string, email: string, password: string): Promise<UserProfile> {
+  async register(name: string, email: string, password: string): Promise<UserProfile | null> {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -39,7 +39,14 @@ export const authService = {
     });
     
     if (error) throw error;
-    if (!data.user) throw new Error("Registration failed. Please check your email for verification.");
+    
+    // If confirmation is required, session will be null.
+    // We return null to indicate verification is needed.
+    if (data.user && !data.session) {
+        return null; 
+    }
+
+    if (!data.user) throw new Error("Registration failed.");
 
     return {
       id: data.user.id,

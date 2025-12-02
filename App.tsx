@@ -68,8 +68,8 @@ const App: React.FC = () => {
   // User Stats
   const [userStats, setUserStats] = useState<UserStats>({
     totalChants: 0,
-    streakDays: 1,
-    lastChantedDate: new Date().toDateString(),
+    streakDays: 0,
+    lastChantedDate: null,
     mantraBreakdown: [], 
     isPremium: false
   });
@@ -155,8 +155,8 @@ const App: React.FC = () => {
         // Reset to default for new user
         setUserStats({
             totalChants: 0,
-            streakDays: 1,
-            lastChantedDate: new Date().toDateString(),
+            streakDays: 0,
+            lastChantedDate: null,
             mantraBreakdown: [],
             isPremium: false
         });
@@ -262,8 +262,32 @@ const App: React.FC = () => {
   const handleUpdateCount = (increment: number, groupId: string | null, mantraText: string) => {
     if (!currentUser) return;
 
-    // Update User Total and Breakdown
+    const today = new Date().toDateString();
+
+    // Update User Total, Breakdown, and Streak
     setUserStats(prev => {
+        let newStreak = prev.streakDays;
+        const lastDate = prev.lastChantedDate;
+
+        // Streak Logic: If date changed from yesterday to today, increment. 
+        // If date is already today, do nothing to streak.
+        // If date is older than yesterday, reset to 1.
+        if (lastDate !== today) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (lastDate === yesterday.toDateString()) {
+                // Was active yesterday, streak continues
+                newStreak += 1;
+            } else {
+                // Gap in practice or first time
+                newStreak = 1;
+            }
+        } else if (newStreak === 0) {
+            // First chant ever
+            newStreak = 1;
+        }
+
         const existingMantraStats = prev.mantraBreakdown.find(m => m.mantraText === mantraText);
         let newBreakdown = [...prev.mantraBreakdown];
 
@@ -278,6 +302,8 @@ const App: React.FC = () => {
         return {
             ...prev,
             totalChants: prev.totalChants + increment,
+            streakDays: newStreak,
+            lastChantedDate: today,
             mantraBreakdown: newBreakdown
         };
     });
@@ -508,7 +534,7 @@ const App: React.FC = () => {
                 </button>
                 
                 <div className="pt-4 border-t border-stone-100 dark:border-stone-700">
-                    <p className="text-xs text-center text-stone-400 font-serif">OmCounter v1.4</p>
+                    <p className="text-xs text-center text-stone-400 font-serif">OmCounter v1.5</p>
                 </div>
              </div>
           </div>

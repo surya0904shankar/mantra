@@ -100,10 +100,10 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                 <div className="flex justify-between items-end mb-6">
                 <div>
                     <p className="text-sm text-stone-500 line-through">₹199</p>
-                    <p className="text-3xl font-bold text-stone-900 dark:text-stone-100">₹100<span className="text-sm font-normal text-stone-500">/mo</span></p>
+                    <p className="text-3xl font-bold text-stone-900 dark:text-stone-100">₹50<span className="text-sm font-normal text-stone-500">/mo</span></p>
                 </div>
                 <span className="bg-saffron-100 text-saffron-700 dark:bg-saffron-900/30 dark:text-saffron-300 px-3 py-1 rounded-full text-xs font-bold">
-                    Save 50%
+                    Save 75%
                 </span>
                 </div>
 
@@ -193,14 +193,14 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
 
                     <div className="bg-stone-50 dark:bg-stone-800 p-3 rounded-lg flex justify-between items-center text-sm text-stone-600 dark:text-stone-300 mt-4">
                         <span>Total due:</span>
-                        <span className="font-bold text-stone-900 dark:text-stone-100">₹100.00</span>
+                        <span className="font-bold text-stone-900 dark:text-stone-100">₹50.00</span>
                     </div>
 
                     <button 
                         type="submit"
                         className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold text-lg hover:bg-stone-800 dark:hover:bg-stone-200 shadow-lg shadow-stone-200 dark:shadow-none transition-transform active:scale-[0.98] flex items-center justify-center gap-2 mt-4"
                     >
-                         Pay ₹100
+                         Pay ₹50
                     </button>
                     
                     <div className="flex items-center justify-center gap-2 text-xs text-stone-400">
