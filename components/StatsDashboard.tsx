@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { UserStats, Group, UserProfile } from '../types';
 import { Activity, Flame, Users, Sparkles, Loader2, Download, Lock } from 'lucide-react';
 import { analyzeChantingHabits } from '../services/geminiService';
@@ -21,13 +22,29 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
     count: g.members.find(m => m.id === currentUser.id)?.count || 0,
   }));
 
-  // Data for Mantra Breakdown (Pie Chart)
-  const mantraData = userStats.mantraBreakdown.map(m => ({
-    name: m.mantraText.length > 15 ? m.mantraText.substring(0, 15) + '...' : m.mantraText,
-    value: m.totalCount
-  })).filter(d => d.value > 0);
+  // Calculate Personal Only Stats (Total - Group Contributions)
+  const groupCountsByMantra: Record<string, number> = {};
+  
+  // 1. Sum up all counts contributed to groups for each mantra
+  groups.forEach(group => {
+    const member = group.members.find(m => m.id === currentUser.id);
+    if (member && member.count > 0) {
+      const text = group.mantra.text;
+      groupCountsByMantra[text] = (groupCountsByMantra[text] || 0) + member.count;
+    }
+  });
 
-  const COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#3b82f6'];
+  // 2. Derive Personal Counts
+  const personalSadhanaData = userStats.mantraBreakdown.map(m => {
+    const groupCount = groupCountsByMantra[m.mantraText] || 0;
+    const personalCount = m.totalCount - groupCount;
+    return {
+      name: m.mantraText,
+      count: Math.max(0, personalCount) // Ensure no negative numbers
+    };
+  })
+  .filter(d => d.count > 0) // Only show mantras with personal activity
+  .sort((a, b) => b.count - a.count); // Sort Highest to Lowest
 
   const handleGetAdvice = async () => {
     setIsLoadingAi(true);
@@ -189,33 +206,40 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
           </div>
         </div>
 
-        {/* Chart Section: By Mantra */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-          <h3 className="text-lg font-serif font-bold text-stone-800 mb-6">Mantra Distribution</h3>
-          <div className="h-64 w-full">
-            {mantraData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={mantraData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {mantraData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', fontFamily: 'Karma' }} />
-                  <Legend iconType="circle" layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize: '12px', fontFamily: 'Inter'}} />
-                </PieChart>
-              </ResponsiveContainer>
+        {/* Chart Section: Personal Sadhana (replacing Mantra Distribution) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex flex-col h-96">
+          <h3 className="text-lg font-serif font-bold text-stone-800 mb-4 flex items-center gap-2">
+            <span className="p-1.5 bg-saffron-100 text-saffron-600 rounded-lg"><Flame size={18} /></span>
+            Personal Sadhana
+          </h3>
+          <p className="text-xs text-stone-500 mb-4 -mt-2">Individual chants excluding group activity.</p>
+          
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3 no-scrollbar">
+            {personalSadhanaData.length > 0 ? (
+              personalSadhanaData.map((item, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                      index === 0 ? 'bg-yellow-100 text-yellow-700' : 
+                      index === 1 ? 'bg-stone-200 text-stone-600' : 
+                      index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-transparent text-stone-400'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className="font-bold text-stone-800 text-sm">{item.name}</p>
+                    </div>
+                  </div>
+                  <span className="font-display font-bold text-lg text-saffron-600">{item.count.toLocaleString()}</span>
+                </div>
+              ))
             ) : (
-               <div className="h-full flex items-center justify-center text-stone-400 text-sm font-serif italic">
-                No chants recorded yet.
+               <div className="h-full flex flex-col items-center justify-center text-stone-400 text-sm font-serif italic gap-2">
+                <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center">
+                  <Flame size={20} className="opacity-20" />
+                </div>
+                <p>No individual practice recorded.</p>
+                <button onClick={() => window.location.hash = '#practice'} className="text-xs text-saffron-500 font-bold uppercase tracking-wider mt-2">Start Chanting</button>
               </div>
             )}
           </div>
