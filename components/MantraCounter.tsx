@@ -187,3 +187,74 @@ const MantraCounter: React.FC<MantraCounterProps> = ({ activeGroup, personalMant
         <button
           ref={buttonRef}
           onClick={handleTap}
+          className={`w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-stone-200 dark:shadow-none active:scale-95 transition-all flex items-center justify-center gap-2 ${isManualMode ? 'hidden' : 'block'}`}
+        >
+          <Plus size={24} /> Chant
+        </button>
+
+        {/* Action Bar */}
+        <div className="flex items-center justify-center gap-3">
+          {/* Manual Input Toggle */}
+          {!isManualMode ? (
+            <button 
+              onClick={() => setIsManualMode(true)}
+              className="p-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors"
+              title="Manual Entry"
+            >
+              123
+            </button>
+          ) : (
+            <div className="flex-1 flex gap-2 animate-in fade-in slide-in-from-bottom-2">
+               <input 
+                 type="number" 
+                 value={manualInput}
+                 onChange={(e) => setManualInput(e.target.value)}
+                 placeholder="Count"
+                 className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-saffron-400 text-lg font-bold text-center bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                 autoFocus
+               />
+               <button 
+                 onClick={handleManualSubmit}
+                 className="bg-saffron-500 text-white px-4 rounded-xl hover:bg-saffron-600"
+               >
+                 <Check size={24} />
+               </button>
+               <button 
+                 onClick={() => setIsManualMode(false)}
+                 className="bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400 px-4 rounded-xl"
+               >
+                 <X size={24} />
+               </button>
+            </div>
+          )}
+          
+          {/* Reset / Finish (Hidden during manual input) */}
+          {!isManualMode && (
+            <>
+                <button 
+                onClick={() => {
+                    if(confirm("Reset current session count?")) setSessionCount(0);
+                }}
+                disabled={sessionCount === 0}
+                className="p-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 rounded-xl hover:text-stone-600 dark:hover:text-stone-300 disabled:opacity-50 transition-colors"
+                title="Reset Session"
+                >
+                <RotateCcw size={20} />
+                </button>
+
+                <button 
+                onClick={handleFinishSession}
+                disabled={sessionCount === 0}
+                className="flex-1 bg-gradient-to-r from-mystic-500 to-mystic-600 text-white py-3 px-4 rounded-xl font-bold shadow-lg shadow-mystic-200 dark:shadow-none hover:opacity-90 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                >
+                <Save size={18} /> Finish
+                </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MantraCounter;
