@@ -111,10 +111,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             Sign in with Google
           </button>
           
-          <p className="text-[10px] text-center text-stone-400 mb-6">
-            If preview blocks Google Login, please open app in a <a href={window.location.href} target="_blank" rel="noreferrer" className="underline hover:text-stone-600">New Tab</a>.
-          </p>
-
+        
           <div className="flex items-center gap-4 mb-6">
             <div className="h-px bg-stone-200 dark:bg-stone-700 flex-1"></div>
             <span className="text-xs text-stone-400 font-medium">OR EMAIL</span>
