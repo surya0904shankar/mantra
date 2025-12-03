@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
 import StatsDashboard from './components/StatsDashboard';
@@ -7,6 +6,7 @@ import GroupAdmin from './components/GroupAdmin';
 import SubscriptionModal from './components/SubscriptionModal';
 import AuthScreen from './components/AuthScreen';
 import { authService } from './services/auth';
+import { supabase } from './lib/supabaseClient';
 import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock } from 'lucide-react';
 
 // Navigation Button Component for Sidebar
@@ -135,19 +135,10 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
-  // Load User Data when currentUser changes
+  // Load User Data & Groups from Supabase when currentUser changes
   useEffect(() => {
     if (currentUser) {
-      // 1. Load Global Groups (Shared across "backend")
-      const savedGroups = localStorage.getItem('om_groups');
-      if (savedGroups) {
-        setGroups(JSON.parse(savedGroups));
-      } else {
-        // No default group loaded, start fresh
-        setGroups([]);
-      }
-
-      // 2. Load Personal Stats
+      // 1. Load Personal Stats (Keep in LocalStorage for now to avoid complexity of migration)
       const savedStats = localStorage.getItem(`om_stats_${currentUser.id}`);
       if (savedStats) {
         setUserStats(JSON.parse(savedStats));
@@ -162,75 +153,193 @@ const App: React.FC = () => {
         });
       }
 
-      // 3. Load Reminder Settings
+      // 2. Load Reminder Settings
       const savedReminder = localStorage.getItem(`om_reminder_${currentUser.id}`);
       if(savedReminder) {
         const parsed = JSON.parse(savedReminder);
         setReminder(parsed);
         setTempReminderTime(parsed.time);
       }
+
+      // 3. Load Groups from Supabase (DB Sync)
+      const loadGroups = async () => {
+        try {
+            // Get all memberships for the current user
+            const { data: myMemberships, error: memberError } = await supabase
+                .from('group_members')
+                .select('group_id')
+                .eq('user_id', currentUser.id);
+
+            if (memberError) throw memberError;
+
+            // If user has no groups, set empty
+            if (!myMemberships || myMemberships.length === 0) {
+                setGroups([]);
+                return;
+            }
+
+            const groupIds = myMemberships.map(m => m.group_id);
+
+            // Fetch the groups details
+            const { data: groupsData, error: groupsError } = await supabase
+                .from('groups')
+                .select('*')
+                .in('id', groupIds);
+            
+            if (groupsError) throw groupsError;
+
+            // Fetch ALL members for these groups (to display counts/lists correctly)
+            const { data: allMembers, error: allMembersError } = await supabase
+                .from('group_members')
+                .select('*, profiles(name)')
+                .in('group_id', groupIds);
+            
+            if (allMembersError) throw allMembersError;
+
+            // Map DB response to UI Group type
+            const mappedGroups: Group[] = groupsData.map(g => ({
+                id: g.id,
+                name: g.name,
+                description: g.description,
+                mantra: {
+                    id: g.id + '_mantra',
+                    text: g.mantra_text,
+                    meaning: g.mantra_meaning,
+                    targetCount: g.mantra_target || 108
+                },
+                adminId: g.admin_id,
+                totalGroupCount: g.total_group_chants || 0,
+                isPremium: g.is_premium,
+                announcements: [], // Announcements fetched lazily or empty for now
+                members: allMembers?.filter(m => m.group_id === g.id).map(m => ({
+                    id: m.user_id,
+                    name: m.profiles?.name || 'Meditator',
+                    count: m.count,
+                    lastActive: m.last_active || new Date().toISOString(),
+                    history: m.history ? (typeof m.history === 'string' ? JSON.parse(m.history) : m.history) : []
+                })) || []
+            }));
+
+            setGroups(mappedGroups);
+
+        } catch (err) {
+            console.error("Error loading groups:", err);
+            // Fallback: If DB fails, set empty
+            setGroups([]);
+        }
+      };
+
+      loadGroups();
     }
   }, [currentUser]);
 
-  // Save Stats whenever they change
+  // Save Stats whenever they change (Local Persist)
   useEffect(() => {
     if (currentUser) {
         localStorage.setItem(`om_stats_${currentUser.id}`, JSON.stringify(userStats));
     }
   }, [userStats, currentUser]);
 
-  // Save Groups whenever they change
-  useEffect(() => {
-    if (groups.length > 0) {
-        localStorage.setItem('om_groups', JSON.stringify(groups));
-    }
-  }, [groups]);
-
   // --- Handlers ---
 
-  const handleCreateGroup = (newGroup: Group) => {
-    // Attach creator's premium status to the group
+  const handleCreateGroup = async (newGroup: Group) => {
+    if (!currentUser) return;
+
+    // Attach creator's premium status
     const groupWithStatus = {
         ...newGroup,
         isPremium: userStats.isPremium
     };
+
+    // Optimistic UI Update
     setGroups(prev => [...prev, groupWithStatus]);
+
+    try {
+        // 1. Insert into Groups Table
+        const { error: groupError } = await supabase.from('groups').insert({
+            id: newGroup.id,
+            name: newGroup.name,
+            description: newGroup.description,
+            mantra_text: newGroup.mantra.text,
+            mantra_meaning: newGroup.mantra.meaning,
+            mantra_target: newGroup.mantra.targetCount,
+            admin_id: currentUser.id,
+            is_premium: userStats.isPremium,
+            total_group_chants: 0
+        });
+
+        if (groupError) throw groupError;
+
+        // 2. Insert into Members Table
+        const { error: memberError } = await supabase.from('group_members').insert({
+            group_id: newGroup.id,
+            user_id: currentUser.id,
+            count: 0,
+            last_active: new Date().toISOString()
+        });
+
+        if (memberError) throw memberError;
+
+    } catch (err) {
+        console.error("Error creating group in DB:", err);
+        alert("Could not sync group creation. Please check connection.");
+    }
   };
 
-  const handleJoinGroup = (groupId: string) => {
+  const handleJoinGroup = async (groupId: string) => {
     if (!currentUser) return;
-    const existing = groups.find(g => g.id === groupId);
-    
-    if (existing) {
-        // Add user to existing group if not present
-        if (existing.members.some(m => m.id === currentUser.id)) {
+
+    try {
+        // 1. Check if group exists in DB
+        const { data: groupData, error: groupFetchError } = await supabase
+            .from('groups')
+            .select('*')
+            .eq('id', groupId)
+            .single();
+
+        if (groupFetchError || !groupData) {
+            alert("Group not found. Please check the ID.");
+            return;
+        }
+
+        // 2. Check if already a member
+        const { data: existingMember } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', groupId)
+            .eq('user_id', currentUser.id)
+            .single();
+
+        if (existingMember) {
              alert("You are already in this group.");
              return;
         }
 
-        // Check 25 member limit for free groups
-        if (!existing.isPremium && existing.members.length >= 25) {
-             alert("This circle has reached its 25 member limit. The creator must upgrade to Premium to accept more members.");
-             return;
-        }
+        // 3. Add to group_members in DB
+        const { error: joinError } = await supabase.from('group_members').insert({
+            group_id: groupId,
+            user_id: currentUser.id,
+            count: 0,
+            last_active: new Date().toISOString()
+        });
 
-        setGroups(prev => prev.map(g => {
-            if (g.id === groupId) {
-                return {
-                    ...g,
-                    members: [...g.members, { id: currentUser.id, name: currentUser.name, count: 0, lastActive: new Date().toISOString() }]
-                };
-            }
-            return g;
-        }));
-        alert(`Joined group: ${existing.name}`);
-    } else {
-        alert("Group not found. Please check the ID.");
+        if (joinError) throw joinError;
+
+        alert(`Joined group: ${groupData.name}`);
+        
+        // Refresh page to load new group data cleanly
+        window.location.reload(); 
+
+    } catch (err) {
+        console.error("Error joining group:", err);
+        alert("Failed to join group.");
     }
   };
 
   const handleAddAnnouncement = (groupId: string, text: string) => {
     if(!currentUser) return;
+    
+    // Optimistic Update
     setGroups(prev => prev.map(g => {
         if(g.id === groupId) {
             return {
@@ -259,32 +368,26 @@ const App: React.FC = () => {
     setPersonalMantras([...personalMantras, newMantra]);
   };
 
-  const handleUpdateCount = (increment: number, groupId: string | null, mantraText: string) => {
+  const handleUpdateCount = async (increment: number, groupId: string | null, mantraText: string) => {
     if (!currentUser) return;
 
     const today = new Date().toDateString();
+    const nowISO = new Date().toISOString();
 
-    // Update User Total, Breakdown, and Streak
+    // 1. Update Personal Stats (Local Logic)
     setUserStats(prev => {
         let newStreak = prev.streakDays;
         const lastDate = prev.lastChantedDate;
 
-        // Streak Logic: If date changed from yesterday to today, increment. 
-        // If date is already today, do nothing to streak.
-        // If date is older than yesterday, reset to 1.
         if (lastDate !== today) {
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
-            
             if (lastDate === yesterday.toDateString()) {
-                // Was active yesterday, streak continues
                 newStreak += 1;
             } else {
-                // Gap in practice or first time
                 newStreak = 1;
             }
         } else if (newStreak === 0) {
-            // First chant ever
             newStreak = 1;
         }
 
@@ -308,23 +411,19 @@ const App: React.FC = () => {
         };
     });
 
-    // Update Group Stats if applicable
+    // 2. Update Group Stats (Supabase Logic)
     if (groupId) {
+        // Optimistic UI Update
         setGroups(prevGroups => prevGroups.map(g => {
             if (g.id === groupId) {
                 const updatedMembers = g.members.map(m => {
                     if (m.id === currentUser.id) {
-                        const now = new Date().toISOString();
-                        // Add to history (prepend new entry)
-                        const newHistoryEntry = { date: now, count: increment };
-                        // Ensure history exists
-                        const currentHistory = m.history || [];
-                        const updatedHistory = [newHistoryEntry, ...currentHistory];
-                        
+                        const newHistoryEntry = { date: nowISO, count: increment };
+                        const updatedHistory = [newHistoryEntry, ...(m.history || [])];
                         return { 
                           ...m, 
                           count: m.count + increment, 
-                          lastActive: now,
+                          lastActive: nowISO,
                           history: updatedHistory
                         };
                     }
@@ -338,6 +437,41 @@ const App: React.FC = () => {
             }
             return g;
         }));
+
+        // DB Update
+        try {
+            // Fetch current member data to append history safely
+            const { data: memberData } = await supabase
+                .from('group_members')
+                .select('count, history')
+                .eq('group_id', groupId)
+                .eq('user_id', currentUser.id)
+                .single();
+
+            if (memberData) {
+                const newCount = (memberData.count || 0) + increment;
+                const oldHistory = memberData.history ? (typeof memberData.history === 'string' ? JSON.parse(memberData.history) : memberData.history) : [];
+                const newHistory = [{ date: nowISO, count: increment }, ...oldHistory];
+
+                await supabase
+                    .from('group_members')
+                    .update({ 
+                        count: newCount, 
+                        history: newHistory, 
+                        last_active: nowISO 
+                    })
+                    .eq('group_id', groupId)
+                    .eq('user_id', currentUser.id);
+                
+                // Also increment group total
+                const { data: groupData } = await supabase.from('groups').select('total_group_chants').eq('id', groupId).single();
+                if (groupData) {
+                    await supabase.from('groups').update({ total_group_chants: groupData.total_group_chants + increment }).eq('id', groupId);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to sync chant to DB:", err);
+        }
     }
   };
 
