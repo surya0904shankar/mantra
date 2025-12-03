@@ -43,7 +43,7 @@ const App: React.FC = () => {
     return (localStorage.getItem('om_theme') as 'light' | 'dark') || 'light';
   });
 
-  // Reminder Settings (Kept Local as it's device specific)
+  // Reminder Settings (Kept Local as it's device specific preference)
   const [reminder, setReminder] = useState<ReminderSettings>({
     enabled: false,
     time: '07:00'
@@ -177,6 +177,7 @@ const App: React.FC = () => {
                     isPremium: profile.is_premium,
                     totalChants: profile.total_global_chants || 0,
                     // Parse JSONB from DB to UI structure
+                    // The SQL MUST have the mantra_stats column for this to work
                     mantraBreakdown: profile.mantra_stats ? (typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats) : []
                 }));
             }
