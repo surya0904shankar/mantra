@@ -43,14 +43,14 @@ const App: React.FC = () => {
     return (localStorage.getItem('om_theme') as 'light' | 'dark') || 'light';
   });
 
-  // Reminder Settings
+  // Reminder Settings (Kept Local as it's device specific)
   const [reminder, setReminder] = useState<ReminderSettings>({
     enabled: false,
     time: '07:00'
   });
   const [tempReminderTime, setTempReminderTime] = useState('07:00');
 
-  // Personal Mantras Library (Expanded)
+  // Personal Mantras Library
   const [personalMantras, setPersonalMantras] = useState<Mantra[]>([
     { id: 'pm-1', text: 'Om Namah Shivaya', targetCount: 108, meaning: 'I bow to Shiva, the supreme reality.' },
     { id: 'pm-2', text: 'Om Mani Padme Hum', targetCount: 108, meaning: 'The jewel is in the lotus.' },
@@ -129,10 +129,18 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
-  // LOAD DATA FROM DATABASE (Supabase)
+  // LOAD DATA FROM DATABASE (Supabase) - REPLACES LOCAL STORAGE
   useEffect(() => {
     if (currentUser) {
-      // 1. Load User Stats from DB (Profiles Table)
+      // 1. Load Reminder Settings (Device Specific)
+      const savedReminder = localStorage.getItem(`om_reminder_${currentUser.id}`);
+      if(savedReminder) {
+        const parsed = JSON.parse(savedReminder);
+        setReminder(parsed);
+        setTempReminderTime(parsed.time);
+      }
+
+      // 2. Load User Stats from DB (Single Source of Truth)
       const loadUserStats = async () => {
         const { data, error } = await supabase
             .from('profiles')
@@ -141,20 +149,18 @@ const App: React.FC = () => {
             .single();
         
         if (!error && data) {
-            // Note: Streak calculation is complex without daily logs, 
-            // for now we trust the client state or reset if needed. 
-            // In a full app, you'd calculate streak from 'chant_logs'.
-            // Here we just sync the Total Count.
             setUserStats(prev => ({
                 ...prev,
                 isPremium: data.is_premium,
-                totalChants: data.total_global_chants || 0
+                totalChants: data.total_global_chants || 0,
+                // In a real production app, streak would also be calculated from DB 'chant_logs'
+                // For MVP, we trust the DB 'total_global_chants' as the master record.
             }));
         }
       };
       loadUserStats();
 
-      // 2. Load Groups from DB
+      // 3. Load Groups from DB
       const loadGroups = async () => {
         try {
             const { data: myMemberships, error: memberError } = await supabase
@@ -343,7 +349,7 @@ const App: React.FC = () => {
     const today = new Date().toDateString();
     const nowISO = new Date().toISOString();
 
-    // 1. Optimistic UI Update (Stats)
+    // 1. Update State (Optimistic)
     setUserStats(prev => {
         let newStreak = prev.streakDays;
         const lastDate = prev.lastChantedDate;
@@ -381,7 +387,6 @@ const App: React.FC = () => {
     });
 
     // 2. DB Update: Global User Stats
-    // We increment 'total_global_chants' in the profiles table
     try {
         const { data: profile } = await supabase
             .from('profiles')
@@ -400,7 +405,6 @@ const App: React.FC = () => {
 
     // 3. DB Update: Group Stats
     if (groupId) {
-        // Optimistic UI Update (Group)
         setGroups(prevGroups => prevGroups.map(g => {
             if (g.id === groupId) {
                 const updatedMembers = g.members.map(m => {
