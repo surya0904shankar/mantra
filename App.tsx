@@ -140,21 +140,37 @@ const App: React.FC = () => {
         setTempReminderTime(parsed.time);
       }
 
-      // 2. Load User Stats from DB (Single Source of Truth)
+      // 2. Initialize/Fetch User Profile & Stats from DB
       const loadUserStats = async () => {
-        const { data, error } = await supabase
+        // Ensure profile exists
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+
+        if (!existingProfile) {
+            // Insert profile if missing (e.g. first login)
+            await supabase.from('profiles').insert({
+                id: currentUser.id,
+                name: currentUser.name,
+                email: currentUser.email,
+                total_global_chants: 0,
+                is_premium: false
+            });
+        }
+
+        const { data: profile } = await supabase
             .from('profiles')
             .select('is_premium, total_global_chants')
             .eq('id', currentUser.id)
             .single();
         
-        if (!error && data) {
+        if (profile) {
             setUserStats(prev => ({
                 ...prev,
-                isPremium: data.is_premium,
-                totalChants: data.total_global_chants || 0,
-                // In a real production app, streak would also be calculated from DB 'chant_logs'
-                // For MVP, we trust the DB 'total_global_chants' as the master record.
+                isPremium: profile.is_premium,
+                totalChants: profile.total_global_chants || 0
             }));
         }
       };
