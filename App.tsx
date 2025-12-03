@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
 import StatsDashboard from './components/StatsDashboard';
@@ -142,7 +141,7 @@ const App: React.FC = () => {
       }
 
       // 2. Initialize/Fetch User Stats from DB (Single Source of Truth)
-      // We do NOT load form localStorage here.
+      // We load ALL stats including mantraBreakdown (mantra_stats) from DB
       const loadUserStats = async () => {
         try {
             // First check if profile exists
@@ -161,7 +160,8 @@ const App: React.FC = () => {
                         name: currentUser.name,
                         email: currentUser.email,
                         total_global_chants: 0,
-                        is_premium: false
+                        is_premium: false,
+                        mantra_stats: [] // Initialize empty array
                     })
                     .select()
                     .single();
@@ -175,9 +175,9 @@ const App: React.FC = () => {
                 setUserStats(prev => ({
                     ...prev,
                     isPremium: profile.is_premium,
-                    totalChants: profile.total_global_chants || 0
-                    // Note: 'mantraBreakdown' would ideally come from a 'chant_logs' query in a full app
-                    // For this MVP, we rely on the total count for sync.
+                    totalChants: profile.total_global_chants || 0,
+                    // Parse JSONB from DB to UI structure
+                    mantraBreakdown: profile.mantra_stats ? (typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats) : []
                 }));
             }
         } catch (err) {
@@ -376,6 +376,9 @@ const App: React.FC = () => {
     const nowISO = new Date().toISOString();
 
     // 1. Update State (Optimistic)
+    // We capture the new breakdown here to send to DB
+    let updatedBreakdown = [];
+    
     setUserStats(prev => {
         let newStreak = prev.streakDays;
         const lastDate = prev.lastChantedDate;
@@ -402,6 +405,8 @@ const App: React.FC = () => {
         } else {
             newBreakdown.push({ mantraText, totalCount: increment });
         }
+        
+        updatedBreakdown = newBreakdown; // Capture for DB update
 
         return {
             ...prev,
@@ -412,10 +417,8 @@ const App: React.FC = () => {
         };
     });
 
-    // 2. DB Update: Global User Stats (CRITICAL FIX FOR SYNC)
-    // We update the 'profiles' table immediately so other devices see it on reload
+    // 2. DB Update: Global User Stats & MANTRA BREAKDOWN
     try {
-        // Fetch fresh first to avoid race conditions (simple increment)
         const { data: profile } = await supabase
             .from('profiles')
             .select('total_global_chants')
@@ -424,8 +427,10 @@ const App: React.FC = () => {
         
         if (profile) {
             const newTotal = (profile.total_global_chants || 0) + increment;
+            
             await supabase.from('profiles').update({
-                total_global_chants: newTotal
+                total_global_chants: newTotal,
+                mantra_stats: updatedBreakdown // Save the list of mantras!
             }).eq('id', currentUser.id);
         }
     } catch(err) {
