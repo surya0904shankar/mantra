@@ -46,6 +46,9 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
   // Join Form State
   const [joinId, setJoinId] = useState('');
 
+  // Filter groups to only show ones the user is a member of (Created or Joined)
+  const myGroups = groups.filter(g => g.members.some(m => m.id === currentUserId));
+
   // Limits - Check using dynamic ID
   const MAX_FREE_GROUPS = 2;
   const createdGroupsCount = groups.filter(g => g.adminId === currentUserId).length;
@@ -296,15 +299,15 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
             </div>
           </div>
 
-          {groups.length === 0 ? (
+          {myGroups.length === 0 ? (
             <div className="text-center py-20 bg-stone-50 dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
               <Users className="mx-auto text-stone-300 dark:text-stone-600 mb-4" size={48} />
-              <p className="text-stone-500 dark:text-stone-400 font-medium font-serif">You haven't joined any groups yet.</p>
+              <p className="text-stone-500 dark:text-stone-400 font-medium font-serif">You are not part of any sanghas.</p>
               <p className="text-stone-400 dark:text-stone-500 text-sm mt-1">Create one or join a friend's circle.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {groups.map(group => {
+              {myGroups.map(group => {
                 const isAdmin = group.adminId === currentUserId;
                 const isNearLimit = !group.isPremium && group.members.length >= 20;
                 const isFull = !group.isPremium && group.members.length >= 25;

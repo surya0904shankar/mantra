@@ -16,8 +16,11 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
+  // Filter groups where user is a member
+  const myGroups = groups.filter(g => g.members.some(m => m.id === currentUser.id));
+
   // Data for Group Chart - Filtered by Current User ID
-  const groupData = groups.map(g => ({
+  const groupData = myGroups.map(g => ({
     name: g.name,
     count: g.members.find(m => m.id === currentUser.id)?.count || 0,
   }));
@@ -172,7 +175,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
           </div>
           <div className="relative z-10">
             <p className="text-sm text-stone-500 font-bold uppercase tracking-wider font-serif">Sangha</p>
-            <p className="text-3xl font-display font-bold text-stone-800">{groups.length}</p>
+            <p className="text-3xl font-display font-bold text-stone-800">{myGroups.length}</p>
           </div>
         </div>
       </div>
