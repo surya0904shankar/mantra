@@ -86,28 +86,23 @@ const App: React.FC = () => {
     localStorage.setItem('om_theme', theme);
   }, [theme]);
 
-  // Reminder Logic Loop (Runs every second to check time)
+  // Reminder Logic Loop
   useEffect(() => {
     let lastTriggeredTime = '';
-
     const checkReminder = () => {
       if (!reminder.enabled || !reminder.time) return;
-
       const now = new Date();
-      // Manually construct HH:MM to ensure 24h format matching regardless of locale
       const hours = now.getHours().toString().padStart(2, '0');
       const minutes = now.getMinutes().toString().padStart(2, '0');
       const currentTime = `${hours}:${minutes}`;
 
-      // Trigger only once per minute
       if (currentTime === reminder.time && currentTime !== lastTriggeredTime) {
         lastTriggeredTime = currentTime;
-        
         if (Notification.permission === 'granted') {
            try {
              new Notification("OmCounter Reminder", {
                 body: `It is ${currentTime}. Time for your spiritual practice.`,
-                icon: '/vite.svg' // Uses default favicon if available
+                icon: '/vite.svg'
              });
            } catch (e) {
              console.error("Notification failed", e);
@@ -115,12 +110,11 @@ const App: React.FC = () => {
         }
       }
     };
-
-    const intervalId = setInterval(checkReminder, 1000); // Check every second to be precise
+    const intervalId = setInterval(checkReminder, 1000);
     return () => clearInterval(intervalId);
   }, [reminder]);
   
-  // Check for existing session (Async for Supabase)
+  // Check for existing session
   useEffect(() => {
     const initAuth = async () => {
         try {
@@ -135,36 +129,34 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
-  // Load User Data & Groups from Supabase when currentUser changes
+  // LOAD DATA FROM DATABASE (Supabase)
   useEffect(() => {
     if (currentUser) {
-      // 1. Load Personal Stats (Keep in LocalStorage for now to avoid complexity of migration)
-      const savedStats = localStorage.getItem(`om_stats_${currentUser.id}`);
-      if (savedStats) {
-        setUserStats(JSON.parse(savedStats));
-      } else {
-        // Reset to default for new user
-        setUserStats({
-            totalChants: 0,
-            streakDays: 0,
-            lastChantedDate: null,
-            mantraBreakdown: [],
-            isPremium: false
-        });
-      }
+      // 1. Load User Stats from DB (Profiles Table)
+      const loadUserStats = async () => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('is_premium, total_global_chants')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (!error && data) {
+            // Note: Streak calculation is complex without daily logs, 
+            // for now we trust the client state or reset if needed. 
+            // In a full app, you'd calculate streak from 'chant_logs'.
+            // Here we just sync the Total Count.
+            setUserStats(prev => ({
+                ...prev,
+                isPremium: data.is_premium,
+                totalChants: data.total_global_chants || 0
+            }));
+        }
+      };
+      loadUserStats();
 
-      // 2. Load Reminder Settings
-      const savedReminder = localStorage.getItem(`om_reminder_${currentUser.id}`);
-      if(savedReminder) {
-        const parsed = JSON.parse(savedReminder);
-        setReminder(parsed);
-        setTempReminderTime(parsed.time);
-      }
-
-      // 3. Load Groups from Supabase (DB Sync)
+      // 2. Load Groups from DB
       const loadGroups = async () => {
         try {
-            // Get all memberships for the current user
             const { data: myMemberships, error: memberError } = await supabase
                 .from('group_members')
                 .select('group_id')
@@ -172,7 +164,6 @@ const App: React.FC = () => {
 
             if (memberError) throw memberError;
 
-            // If user has no groups, set empty
             if (!myMemberships || myMemberships.length === 0) {
                 setGroups([]);
                 return;
@@ -180,7 +171,6 @@ const App: React.FC = () => {
 
             const groupIds = myMemberships.map(m => m.group_id);
 
-            // Fetch the groups details
             const { data: groupsData, error: groupsError } = await supabase
                 .from('groups')
                 .select('*')
@@ -188,7 +178,6 @@ const App: React.FC = () => {
             
             if (groupsError) throw groupsError;
 
-            // Fetch ALL members for these groups (to display counts/lists correctly)
             const { data: allMembers, error: allMembersError } = await supabase
                 .from('group_members')
                 .select('*, profiles(name)')
@@ -196,7 +185,6 @@ const App: React.FC = () => {
             
             if (allMembersError) throw allMembersError;
 
-            // Map DB response to UI Group type
             const mappedGroups: Group[] = groupsData.map(g => ({
                 id: g.id,
                 name: g.name,
@@ -210,7 +198,7 @@ const App: React.FC = () => {
                 adminId: g.admin_id,
                 totalGroupCount: g.total_group_chants || 0,
                 isPremium: g.is_premium,
-                announcements: [], // Announcements fetched lazily or empty for now
+                announcements: [], 
                 members: allMembers?.filter(m => m.group_id === g.id).map(m => ({
                     id: m.user_id,
                     name: m.profiles?.name || 'Meditator',
@@ -224,7 +212,6 @@ const App: React.FC = () => {
 
         } catch (err) {
             console.error("Error loading groups:", err);
-            // Fallback: If DB fails, set empty
             setGroups([]);
         }
       };
@@ -233,29 +220,19 @@ const App: React.FC = () => {
     }
   }, [currentUser]);
 
-  // Save Stats whenever they change (Local Persist)
-  useEffect(() => {
-    if (currentUser) {
-        localStorage.setItem(`om_stats_${currentUser.id}`, JSON.stringify(userStats));
-    }
-  }, [userStats, currentUser]);
-
   // --- Handlers ---
 
   const handleCreateGroup = async (newGroup: Group) => {
     if (!currentUser) return;
 
-    // Attach creator's premium status
     const groupWithStatus = {
         ...newGroup,
         isPremium: userStats.isPremium
     };
 
-    // Optimistic UI Update
     setGroups(prev => [...prev, groupWithStatus]);
 
     try {
-        // 1. Insert into Groups Table
         const { error: groupError } = await supabase.from('groups').insert({
             id: newGroup.id,
             name: newGroup.name,
@@ -270,7 +247,6 @@ const App: React.FC = () => {
 
         if (groupError) throw groupError;
 
-        // 2. Insert into Members Table
         const { error: memberError } = await supabase.from('group_members').insert({
             group_id: newGroup.id,
             user_id: currentUser.id,
@@ -290,7 +266,6 @@ const App: React.FC = () => {
     if (!currentUser) return;
 
     try {
-        // 1. Check if group exists in DB
         const { data: groupData, error: groupFetchError } = await supabase
             .from('groups')
             .select('*')
@@ -302,7 +277,6 @@ const App: React.FC = () => {
             return;
         }
 
-        // 2. Check if already a member
         const { data: existingMember } = await supabase
             .from('group_members')
             .select('*')
@@ -315,7 +289,6 @@ const App: React.FC = () => {
              return;
         }
 
-        // 3. Add to group_members in DB
         const { error: joinError } = await supabase.from('group_members').insert({
             group_id: groupId,
             user_id: currentUser.id,
@@ -326,8 +299,6 @@ const App: React.FC = () => {
         if (joinError) throw joinError;
 
         alert(`Joined group: ${groupData.name}`);
-        
-        // Refresh page to load new group data cleanly
         window.location.reload(); 
 
     } catch (err) {
@@ -338,8 +309,6 @@ const App: React.FC = () => {
 
   const handleAddAnnouncement = (groupId: string, text: string) => {
     if(!currentUser) return;
-    
-    // Optimistic Update
     setGroups(prev => prev.map(g => {
         if(g.id === groupId) {
             return {
@@ -374,7 +343,7 @@ const App: React.FC = () => {
     const today = new Date().toDateString();
     const nowISO = new Date().toISOString();
 
-    // 1. Update Personal Stats (Local Logic)
+    // 1. Optimistic UI Update (Stats)
     setUserStats(prev => {
         let newStreak = prev.streakDays;
         const lastDate = prev.lastChantedDate;
@@ -411,9 +380,27 @@ const App: React.FC = () => {
         };
     });
 
-    // 2. Update Group Stats (Supabase Logic)
+    // 2. DB Update: Global User Stats
+    // We increment 'total_global_chants' in the profiles table
+    try {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('total_global_chants')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (profile) {
+            await supabase.from('profiles').update({
+                total_global_chants: (profile.total_global_chants || 0) + increment
+            }).eq('id', currentUser.id);
+        }
+    } catch(err) {
+        console.error("Failed to sync global stats:", err);
+    }
+
+    // 3. DB Update: Group Stats
     if (groupId) {
-        // Optimistic UI Update
+        // Optimistic UI Update (Group)
         setGroups(prevGroups => prevGroups.map(g => {
             if (g.id === groupId) {
                 const updatedMembers = g.members.map(m => {
@@ -438,9 +425,7 @@ const App: React.FC = () => {
             return g;
         }));
 
-        // DB Update
         try {
-            // Fetch current member data to append history safely
             const { data: memberData } = await supabase
                 .from('group_members')
                 .select('count, history')
@@ -463,7 +448,6 @@ const App: React.FC = () => {
                     .eq('group_id', groupId)
                     .eq('user_id', currentUser.id);
                 
-                // Also increment group total
                 const { data: groupData } = await supabase.from('groups').select('total_group_chants').eq('id', groupId).single();
                 if (groupData) {
                     await supabase.from('groups').update({ total_group_chants: groupData.total_group_chants + increment }).eq('id', groupId);
@@ -518,8 +502,6 @@ const App: React.FC = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  // --- Conditional Rendering ---
-
   if (isAuthChecking) return <div className="h-screen flex items-center justify-center bg-stone-50 text-stone-400 font-serif dark:bg-stone-950 dark:text-stone-500">Loading Sacred Space...</div>;
 
   if (!currentUser) {
@@ -568,20 +550,15 @@ const App: React.FC = () => {
         onUpgrade={handleUpgrade}
       />
 
-      {/* Settings Modal Overlay */}
       {showSettings && (
         <div className="fixed inset-0 bg-mystic-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative border border-stone-100 dark:border-stone-800">
-             <button 
-                onClick={() => setShowSettings(false)}
-                className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 dark:hover:text-stone-200"
-             >
+             <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 dark:hover:text-stone-200">
                 <X size={20} />
              </button>
              <h3 className="text-xl font-serif font-bold text-stone-800 dark:text-white mb-6 flex items-center gap-2 text-display">
                 <Settings size={20} /> Settings
              </h3>
-
              <div className="space-y-6">
                 <div className="flex items-center gap-3 p-3 bg-stone-50 dark:bg-stone-800 rounded-xl">
                    <div className="w-10 h-10 bg-gradient-to-br from-mystic-200 to-mystic-300 rounded-full flex items-center justify-center font-bold text-mystic-800 font-serif">
@@ -592,21 +569,16 @@ const App: React.FC = () => {
                       <p className="text-xs text-stone-500 dark:text-stone-400">{currentUser.email}</p>
                    </div>
                 </div>
-
                 <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-xl border border-stone-100 dark:border-stone-700 flex items-center justify-between">
                     <div>
                         <p className="font-bold text-stone-800 dark:text-stone-100 font-serif">Plan Status</p>
                         <p className="text-xs text-stone-500 dark:text-stone-400">{userStats.isPremium ? 'Premium Member' : 'Free Tier'}</p>
                     </div>
                     {!userStats.isPremium && (
-                        <button onClick={() => { setShowSettings(false); setShowSubscriptionModal(true); }} className="text-xs bg-saffron-500 text-white px-3 py-1 rounded-full font-bold shadow-lg shadow-saffron-200">
-                            Upgrade
-                        </button>
+                        <button onClick={() => { setShowSettings(false); setShowSubscriptionModal(true); }} className="text-xs bg-saffron-500 text-white px-3 py-1 rounded-full font-bold shadow-lg shadow-saffron-200">Upgrade</button>
                     )}
                     {userStats.isPremium && <Star size={16} className="text-saffron-500" fill="currentColor"/>}
                 </div>
-
-                {/* Reminder Section - Enhanced */}
                 <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-xl border border-stone-100 dark:border-stone-700">
                     <div className="flex items-center justify-between mb-3">
                          <div className="flex items-center gap-2">
@@ -615,111 +587,48 @@ const App: React.FC = () => {
                          </div>
                          {reminder.enabled && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">ON</span>}
                     </div>
-                    
                     <div className="flex flex-col gap-3">
                         <div className="relative flex-1">
                              <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"/>
-                             <input 
-                                type="time"
-                                value={tempReminderTime}
-                                onChange={(e) => setTempReminderTime(e.target.value)}
-                                className="w-full pl-9 px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-saffron-400 focus:outline-none"
-                            />
+                             <input type="time" value={tempReminderTime} onChange={(e) => setTempReminderTime(e.target.value)} className="w-full pl-9 px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-saffron-400 focus:outline-none"/>
                         </div>
                         {reminder.enabled && reminder.time === tempReminderTime ? (
-                             <button 
-                                onClick={handleDisableReminder}
-                                className="bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 px-4 py-2 rounded-lg text-sm font-bold hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors w-full"
-                             >
-                                Disable Reminder
-                             </button>
+                             <button onClick={handleDisableReminder} className="bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 px-4 py-2 rounded-lg text-sm font-bold hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors w-full">Disable Reminder</button>
                         ) : (
-                             <button 
-                                onClick={handleSetReminder}
-                                className="bg-saffron-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-saffron-600 shadow-md shadow-saffron-200 dark:shadow-none flex items-center justify-center gap-2 transition-colors w-full"
-                             >
-                                Set Reminder <Check size={14} />
-                             </button>
+                             <button onClick={handleSetReminder} className="bg-saffron-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-saffron-600 shadow-md shadow-saffron-200 dark:shadow-none flex items-center justify-center gap-2 transition-colors w-full">Set Reminder <Check size={14} /></button>
                         )}
                     </div>
                     <p className="text-[10px] text-stone-400 mt-2 text-center">You will receive a browser notification at this time.</p>
                 </div>
-
                 <div className="flex items-center justify-between px-2">
                     <div>
                         <p className="font-medium text-stone-800 dark:text-stone-200">Dark Mode</p>
                         <p className="text-xs text-stone-500 dark:text-stone-400">Toggle visual theme.</p>
                     </div>
-                    <button 
-                      onClick={toggleTheme}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${theme === 'dark' ? 'bg-mystic-600' : 'bg-stone-200'}`}
-                    >
+                    <button onClick={toggleTheme} className={`w-12 h-6 rounded-full transition-colors relative ${theme === 'dark' ? 'bg-mystic-600' : 'bg-stone-200'}`}>
                         <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all flex items-center justify-center ${theme === 'dark' ? 'left-7' : 'left-1'}`}>
                             {theme === 'dark' ? <Moon size={10} className="text-mystic-600"/> : <Sun size={10} className="text-orange-400"/>}
                         </div>
                     </button>
                 </div>
-
-                <button 
-                    onClick={handleLogout}
-                    className="w-full text-left flex items-center gap-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-3 rounded-xl transition-colors font-medium"
-                >
-                    <LogOut size={18} /> Log Out
-                </button>
-                
-                <div className="pt-4 border-t border-stone-100 dark:border-stone-700">
-                    <p className="text-xs text-center text-stone-400 font-serif">OmCounter v1.5</p>
-                </div>
+                <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-3 rounded-xl transition-colors font-medium"><LogOut size={18} /> Log Out</button>
+                <div className="pt-4 border-t border-stone-100 dark:border-stone-700"><p className="text-xs text-center text-stone-400 font-serif">OmCounter v1.5</p></div>
              </div>
           </div>
         </div>
       )}
 
-      {/* Sidebar Navigation */}
       <nav className="bg-white dark:bg-stone-900 md:w-20 lg:w-64 md:border-r border-t md:border-t-0 border-stone-200 dark:border-stone-800 flex md:flex-col justify-between z-10 fixed bottom-0 w-full md:relative md:h-screen pb-safe shadow-[0_0_20px_rgba(0,0,0,0.03)] transition-colors duration-300">
-        
         <div className="flex md:flex-col justify-around md:justify-start w-full md:space-y-2 md:p-4">
-          
-          {/* Logo Area - Desktop */}
           <div className="hidden md:flex items-center justify-center lg:justify-start lg:gap-3 px-0 lg:px-4 py-6 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-saffron-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-none text-white font-display font-bold text-xl flex-shrink-0">
-              OM
-            </div>
+            <div className="w-10 h-10 bg-gradient-to-br from-saffron-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-none text-white font-display font-bold text-xl flex-shrink-0">OM</div>
             <span className="font-display font-bold text-xl text-stone-800 dark:text-stone-100 tracking-tight hidden lg:block">OmCounter</span>
           </div>
-
-          {/* Nav Items */}
-          <NavButton 
-             active={currentView === View.DASHBOARD} 
-             onClick={() => setCurrentView(View.DASHBOARD)}
-             icon={<LayoutDashboard size={24} />}
-             label="Dashboard"
-          />
-          <NavButton 
-             active={currentView === View.GROUPS || currentView === View.CREATE_GROUP} 
-             onClick={() => setCurrentView(View.GROUPS)}
-             icon={<Users size={24} />}
-             label="Sanghas"
-          />
-           <NavButton 
-             active={currentView === View.COUNTER} 
-             onClick={() => {
-                // Explicitly switch to PERSONAL practice mode
-                setActiveGroup(null);
-                setCurrentView(View.COUNTER);
-             }}
-             icon={<Flower2 size={24} />}
-             label="Practice"
-          />
-           <NavButton 
-             active={showSettings} 
-             onClick={() => setShowSettings(true)}
-             icon={<Settings size={24} />}
-             label="Settings"
-          />
+          <NavButton active={currentView === View.DASHBOARD} onClick={() => setCurrentView(View.DASHBOARD)} icon={<LayoutDashboard size={24} />} label="Dashboard" />
+          <NavButton active={currentView === View.GROUPS || currentView === View.CREATE_GROUP} onClick={() => setCurrentView(View.GROUPS)} icon={<Users size={24} />} label="Sanghas" />
+          <NavButton active={currentView === View.COUNTER} onClick={() => { setActiveGroup(null); setCurrentView(View.COUNTER); }} icon={<Flower2 size={24} />} label="Practice" />
+          <NavButton active={showSettings} onClick={() => setShowSettings(true)} icon={<Settings size={24} />} label="Settings" />
         </div>
-
-        {/* Upgrade Widget - Only Visible on Large Screens */}
         {!userStats.isPremium && (
             <div className="hidden lg:block p-4 m-4 rounded-2xl bg-gradient-to-br from-saffron-50 to-orange-50 dark:from-stone-800 dark:to-stone-800 border border-saffron-100 dark:border-stone-700 relative overflow-hidden group cursor-pointer" onClick={() => setShowSubscriptionModal(true)}>
                 <div className="absolute -right-2 -top-2 w-12 h-12 bg-saffron-100 dark:bg-stone-700 rounded-full opacity-50 group-hover:scale-150 transition-transform"></div>
@@ -730,7 +639,6 @@ const App: React.FC = () => {
         )}
       </nav>
 
-      {/* Main Content Area */}
       <main className="flex-1 h-screen overflow-y-auto overflow-x-hidden relative pb-24 md:pb-0">
          <div className="max-w-5xl mx-auto p-4 md:p-8 pt-8 md:pt-12">
             {renderContent()}
