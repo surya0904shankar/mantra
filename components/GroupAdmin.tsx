@@ -78,8 +78,9 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
     }
     if (!newGroupName || !selectedSuggestion?.text) return;
 
+    // FIX: Use full UUID for compatibility with Supabase
     const newGroup: Group = {
-      id: crypto.randomUUID().slice(0, 8),
+      id: crypto.randomUUID(), // Do not slice this!
       name: newGroupName,
       description: description || intention,
       mantra: {
