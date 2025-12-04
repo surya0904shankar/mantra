@@ -43,7 +43,7 @@ const App: React.FC = () => {
     return (localStorage.getItem('om_theme') as 'light' | 'dark') || 'light';
   });
 
-  // Reminder Settings (Kept Local as it's device specific preference)
+  // Reminder Settings (Kept Local as it's device specific)
   const [reminder, setReminder] = useState<ReminderSettings>({
     enabled: false,
     time: '07:00'
@@ -129,7 +129,7 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
-  // --- DATA SYNCHRONIZATION (The Fix) ---
+  // --- DATA SYNCHRONIZATION ---
   useEffect(() => {
     if (currentUser) {
       // 1. Load Reminder Settings (Device Specific)
@@ -141,7 +141,6 @@ const App: React.FC = () => {
       }
 
       // 2. Initialize/Fetch User Stats from DB (Single Source of Truth)
-      // We load ALL stats including mantraBreakdown (mantra_stats) from DB
       const loadUserStats = async () => {
         try {
             // First check if profile exists
@@ -161,7 +160,9 @@ const App: React.FC = () => {
                         email: currentUser.email,
                         total_global_chants: 0,
                         is_premium: false,
-                        mantra_stats: [] // Initialize empty array
+                        mantra_stats: [],
+                        streak_days: 0,
+                        last_chanted_date: null
                     })
                     .select()
                     .single();
@@ -176,9 +177,9 @@ const App: React.FC = () => {
                     ...prev,
                     isPremium: profile.is_premium,
                     totalChants: profile.total_global_chants || 0,
-                    // Parse JSONB from DB to UI structure
-                    // The SQL MUST have the mantra_stats column for this to work
-                    mantraBreakdown: profile.mantra_stats ? (typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats) : []
+                    mantraBreakdown: profile.mantra_stats ? (typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats) : [],
+                    streakDays: profile.streak_days || 0,
+                    lastChantedDate: profile.last_chanted_date || null
                 }));
             }
         } catch (err) {
@@ -376,10 +377,12 @@ const App: React.FC = () => {
     const today = new Date().toDateString();
     const nowISO = new Date().toISOString();
 
-    // 1. Update State (Optimistic)
-    // We capture the new breakdown here to send to DB
+    // Variables for DB update
     let updatedBreakdown = [];
-    
+    let updatedStreak = 0;
+    let updatedLastDate = null;
+
+    // 1. Update State (Optimistic)
     setUserStats(prev => {
         let newStreak = prev.streakDays;
         const lastDate = prev.lastChantedDate;
@@ -407,7 +410,10 @@ const App: React.FC = () => {
             newBreakdown.push({ mantraText, totalCount: increment });
         }
         
-        updatedBreakdown = newBreakdown; // Capture for DB update
+        // Capture for DB
+        updatedBreakdown = newBreakdown;
+        updatedStreak = newStreak;
+        updatedLastDate = today;
 
         return {
             ...prev,
@@ -418,7 +424,7 @@ const App: React.FC = () => {
         };
     });
 
-    // 2. DB Update: Global User Stats & MANTRA BREAKDOWN
+    // 2. DB Update: Global User Stats (Full Sync)
     try {
         const { data: profile } = await supabase
             .from('profiles')
@@ -431,7 +437,9 @@ const App: React.FC = () => {
             
             await supabase.from('profiles').update({
                 total_global_chants: newTotal,
-                mantra_stats: updatedBreakdown // Save the list of mantras!
+                mantra_stats: updatedBreakdown, // Save Breakdown
+                streak_days: updatedStreak,     // Save Streak
+                last_chanted_date: updatedLastDate // Save Last Date
             }).eq('id', currentUser.id);
         }
     } catch(err) {
