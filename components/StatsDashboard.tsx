@@ -25,11 +25,15 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
     count: g.members.find(m => m.id === currentUser.id)?.count || 0,
   }));
 
-  // Calculate Personal Only Stats (Total - Group Contributions)
-  const groupCountsByMantra: Record<string, number> = {};
+  // Calculate Personal Sadhana
+  // Strategy: We rely on the mantraBreakdown being the definitive source of truth for ALL chanting activity by the user.
+  // The user requested "Individual chants excluding group activity" for this list.
+  // We can attempt to subtract group counts if they overlap, OR just show the full breakdown as "Personal Sadhana" 
+  // since group chanting IS a form of personal sadhana. 
+  // However, to satisfy the request strictly, we subtract known group counts.
   
-  // 1. Sum up all counts contributed to groups for each mantra
-  groups.forEach(group => {
+  const groupCountsByMantra: Record<string, number> = {};
+  myGroups.forEach(group => {
     const member = group.members.find(m => m.id === currentUser.id);
     if (member && member.count > 0) {
       const text = group.mantra.text;
@@ -37,17 +41,20 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
     }
   });
 
-  // 2. Derive Personal Counts
   const personalSadhanaData = userStats.mantraBreakdown.map(m => {
-    const groupCount = groupCountsByMantra[m.mantraText] || 0;
-    const personalCount = m.totalCount - groupCount;
+    const groupContribution = groupCountsByMantra[m.mantraText] || 0;
+    // If the breakdown tracks total, subtracting gives personal.
+    // If the breakdown ONLY tracked personal (old logic), we wouldn't subtract.
+    // The new App.tsx logic tracks TOTAL in breakdown. So subtraction is correct for "exclusive" view.
+    const personalCount = m.totalCount - groupContribution; 
+    
     return {
       name: m.mantraText,
-      count: Math.max(0, personalCount) // Ensure no negative numbers
+      count: Math.max(0, personalCount) // Prevent negatives if sync is slightly off
     };
   })
-  .filter(d => d.count > 0) // Only show mantras with personal activity
-  .sort((a, b) => b.count - a.count); // Sort Highest to Lowest
+  .filter(d => d.count > 0)
+  .sort((a, b) => b.count - a.count);
 
   const handleGetAdvice = async () => {
     setIsLoadingAi(true);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
 import StatsDashboard from './components/StatsDashboard';
@@ -183,7 +184,8 @@ const App: React.FC = () => {
                     breakdown = [];
                 }
 
-                // FIX: Calculate Total Chants STRICTLY from breakdown sum to ensure consistency with dashboard
+                // FIX: Calculate Total Chants STRICTLY from breakdown sum to ensure consistency
+                // This prevents "Total" from drifting away from the sum of its parts
                 const calculatedTotal = breakdown.reduce((acc: number, curr: any) => acc + (curr.totalCount || 0), 0);
                 
                 setUserStats(prev => ({
@@ -272,6 +274,14 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
+  // Helper for consistent date strings
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleCreateGroup = async (newGroup: Group) => {
     if (!currentUser) return;
 
@@ -316,7 +326,6 @@ const App: React.FC = () => {
     if (!currentUser) return;
 
     try {
-        // 1. Check if group exists in DB
         const { data: groupData, error: groupFetchError } = await supabase
             .from('groups')
             .select('*')
@@ -324,29 +333,23 @@ const App: React.FC = () => {
             .maybeSingle();
 
         if (groupFetchError) throw groupFetchError;
-        
         if (!groupData) {
             alert("Group not found. Please check the ID.");
             return;
         }
 
-        // 2. Check if already a member
-        // Use maybeSingle to avoid 406 errors on empty result
-        const { data: existingMember, error: memberCheckError } = await supabase
+        const { data: existingMember } = await supabase
             .from('group_members')
             .select('*')
             .eq('group_id', groupId)
             .eq('user_id', currentUser.id)
             .maybeSingle();
 
-        if (memberCheckError) throw memberCheckError;
-
         if (existingMember) {
-             alert(`You are already a member of ${groupData.name}.`);
+             alert(`You are already in this group: ${groupData.name}`);
              return;
         }
 
-        // 3. Add to group_members in DB
         const { error: joinError } = await supabase.from('group_members').insert({
             group_id: groupId,
             user_id: currentUser.id,
@@ -356,12 +359,12 @@ const App: React.FC = () => {
 
         if (joinError) throw joinError;
 
-        alert(`Successfully joined group: ${groupData.name}`);
+        alert(`Joined group: ${groupData.name}`);
         window.location.reload(); 
 
     } catch (err) {
         console.error("Error joining group:", err);
-        alert("An error occurred while joining the group. Please try again.");
+        alert("Failed to join group.");
     }
   };
 
@@ -399,69 +402,61 @@ const App: React.FC = () => {
   const handleUpdateCount = async (increment: number, groupId: string | null, mantraText: string) => {
     if (!currentUser) return;
 
-    const today = new Date().toDateString();
-    const nowISO = new Date().toISOString();
+    const today = new Date();
+    const todayStr = formatDate(today);
+    const nowISO = today.toISOString();
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = formatDate(yesterday);
 
     // Variables for DB update
     let updatedBreakdown = [];
-    let updatedStreak = 0;
-    let updatedLastDate = null;
+    let updatedStreak = userStats.streakDays;
+    let updatedLastDate = userStats.lastChantedDate;
 
-    // 1. Update State (Optimistic)
-    setUserStats(prev => {
-        let newStreak = prev.streakDays;
-        const lastDate = prev.lastChantedDate;
-
-        // Streak Logic
-        if (lastDate !== today) {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            if (lastDate === yesterday.toDateString()) {
-                newStreak += 1;
-            } else {
-                newStreak = 1;
-            }
-        } else if (newStreak === 0) {
-            newStreak = 1;
-        }
-
-        const existingMantraStats = prev.mantraBreakdown.find(m => m.mantraText === mantraText);
-        let newBreakdown = [...prev.mantraBreakdown];
-
-        // ALWAYS UPDATE BREAKDOWN, even for group chants
-        // This ensures the Personal Sadhana list is always accurate and complete
-        if (existingMantraStats) {
-            newBreakdown = newBreakdown.map(m => 
-                m.mantraText === mantraText ? { ...m, totalCount: m.totalCount + increment } : m
-            );
+    // 1. Streak Logic
+    if (updatedLastDate !== todayStr) {
+        if (updatedLastDate === yesterdayStr) {
+            updatedStreak += 1;
         } else {
-            newBreakdown.push({ mantraText, totalCount: increment });
+            updatedStreak = 1; // Reset if day skipped or new
         }
-        
-        // Calculate new total from breakdown sum to ensure consistency
-        const newTotalChants = newBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
+    } else if (updatedStreak === 0) {
+        updatedStreak = 1;
+    }
+    updatedLastDate = todayStr;
 
-        // Capture for DB
-        updatedBreakdown = newBreakdown;
-        updatedStreak = newStreak;
-        updatedLastDate = today;
+    // 2. Breakdown Logic - CRITICAL FIX
+    // ALWAYS update the breakdown history, regardless of whether it's a group chant or personal.
+    // This ensures the "Total Count" (sum of breakdowns) stays in sync.
+    updatedBreakdown = [...userStats.mantraBreakdown];
+    const existingMantraStats = updatedBreakdown.find(m => m.mantraText === mantraText);
+    
+    if (existingMantraStats) {
+        updatedBreakdown = updatedBreakdown.map(m => 
+            m.mantraText === mantraText ? { ...m, totalCount: m.totalCount + increment } : m
+        );
+    } else {
+        updatedBreakdown.push({ mantraText, totalCount: increment });
+    }
+    
+    // Calculate new total from breakdown sum (Single Source of Truth)
+    const newTotalChants = updatedBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
 
-        return {
-            ...prev,
-            totalChants: newTotalChants,
-            streakDays: newStreak,
-            lastChantedDate: today,
-            mantraBreakdown: newBreakdown
-        };
-    });
+    // 3. Optimistic UI Update (Global)
+    setUserStats(prev => ({
+        ...prev,
+        totalChants: newTotalChants,
+        streakDays: updatedStreak,
+        lastChantedDate: updatedLastDate,
+        mantraBreakdown: updatedBreakdown
+    }));
 
-    // 2. DB Update: Global User Stats (Full Sync)
-    // We update 'total_global_chants' AND 'mantra_stats' every time.
+    // 4. DB Update: Global User Stats (Full Sync)
     try {
-        const newTotal = updatedBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
-        
         await supabase.from('profiles').update({
-            total_global_chants: newTotal,
+            total_global_chants: newTotalChants,
             mantra_stats: updatedBreakdown, // Save Breakdown (JSON)
             streak_days: updatedStreak,     // Save Streak
             last_chanted_date: updatedLastDate // Save Last Date
@@ -470,7 +465,7 @@ const App: React.FC = () => {
         console.error("Failed to sync global stats:", err);
     }
 
-    // 3. DB Update: Group Specific (If applicable)
+    // 5. DB Update: Group Specific (If applicable)
     if (groupId) {
         // Optimistic UI (Group)
         setGroups(prevGroups => prevGroups.map(g => {
@@ -499,7 +494,6 @@ const App: React.FC = () => {
         }));
 
         try {
-            // Fetch current state to ensure append correctness
             const { data: memberData } = await supabase
                 .from('group_members')
                 .select('count, history')
@@ -509,7 +503,6 @@ const App: React.FC = () => {
 
             if (memberData) {
                 const newCount = (memberData.count || 0) + increment;
-                // Parse history safely
                 let oldHistory = [];
                 try {
                     oldHistory = memberData.history ? (typeof memberData.history === 'string' ? JSON.parse(memberData.history) : memberData.history) : [];
