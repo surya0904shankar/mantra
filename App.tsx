@@ -316,29 +316,37 @@ const App: React.FC = () => {
     if (!currentUser) return;
 
     try {
+        // 1. Check if group exists in DB
         const { data: groupData, error: groupFetchError } = await supabase
             .from('groups')
             .select('*')
             .eq('id', groupId)
-            .single();
+            .maybeSingle();
 
-        if (groupFetchError || !groupData) {
+        if (groupFetchError) throw groupFetchError;
+        
+        if (!groupData) {
             alert("Group not found. Please check the ID.");
             return;
         }
 
-        const { data: existingMember } = await supabase
+        // 2. Check if already a member
+        // Use maybeSingle to avoid 406 errors on empty result
+        const { data: existingMember, error: memberCheckError } = await supabase
             .from('group_members')
             .select('*')
             .eq('group_id', groupId)
             .eq('user_id', currentUser.id)
-            .single();
+            .maybeSingle();
+
+        if (memberCheckError) throw memberCheckError;
 
         if (existingMember) {
-             alert("You are already in this group.");
+             alert(`You are already a member of ${groupData.name}.`);
              return;
         }
 
+        // 3. Add to group_members in DB
         const { error: joinError } = await supabase.from('group_members').insert({
             group_id: groupId,
             user_id: currentUser.id,
@@ -348,12 +356,12 @@ const App: React.FC = () => {
 
         if (joinError) throw joinError;
 
-        alert(`Joined group: ${groupData.name}`);
+        alert(`Successfully joined group: ${groupData.name}`);
         window.location.reload(); 
 
     } catch (err) {
         console.error("Error joining group:", err);
-        alert("Failed to join group.");
+        alert("An error occurred while joining the group. Please try again.");
     }
   };
 
