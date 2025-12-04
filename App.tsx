@@ -129,7 +129,7 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
-  // --- DATA SYNCHRONIZATION (Strict DB Source) ---
+  // --- DATA SYNCHRONIZATION ---
   useEffect(() => {
     if (currentUser) {
       // 1. Load Reminder Settings (Device Specific)
@@ -183,11 +183,18 @@ const App: React.FC = () => {
                     breakdown = [];
                 }
 
-                // Update local state with DB truth
+                // FIX: Calculate Total Chants from Breakdown to ensure sync
+                // If total_global_chants is 0 but breakdown exists, trust the breakdown sum.
+                const calculatedTotal = breakdown.reduce((acc: number, curr: any) => acc + (curr.totalCount || 0), 0);
+                const dbTotal = profile.total_global_chants || 0;
+                
+                // Use the larger of the two to be safe, or strictly calculated
+                const finalTotal = Math.max(calculatedTotal, dbTotal);
+
                 setUserStats(prev => ({
                     ...prev,
                     isPremium: profile.is_premium,
-                    totalChants: profile.total_global_chants || 0,
+                    totalChants: finalTotal,
                     mantraBreakdown: breakdown,
                     streakDays: profile.streak_days || 0,
                     lastChantedDate: profile.last_chanted_date || null
@@ -246,7 +253,7 @@ const App: React.FC = () => {
                 adminId: g.admin_id,
                 totalGroupCount: g.total_group_chants || 0,
                 isPremium: g.is_premium,
-                announcements: [], // Not syncing announcements in this MVP useEffect
+                announcements: [], 
                 members: allMembers?.filter(m => m.group_id === g.id).map(m => ({
                     id: m.user_id,
                     name: m.profiles?.name || 'Meditator',
@@ -412,7 +419,8 @@ const App: React.FC = () => {
         updatedLastDate = today;
     }
 
-    // Breakdown Logic
+    // Breakdown Logic - ALWAYS UPDATE MANTRA HISTORY (Even if in group)
+    // This fixes the "Difference between total vs personal" bug
     const existingMantraStats = updatedBreakdown.find(m => m.mantraText === mantraText);
     if (existingMantraStats) {
         updatedBreakdown = updatedBreakdown.map(m => 
@@ -422,10 +430,13 @@ const App: React.FC = () => {
         updatedBreakdown.push({ mantraText, totalCount: increment });
     }
 
+    // Calculate new total based on breakdown sum to ensure consistency
+    const newTotalChants = updatedBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
+
     // 2. Optimistic UI Update (Global)
     setUserStats(prev => ({
         ...prev,
-        totalChants: prev.totalChants + increment,
+        totalChants: newTotalChants,
         streakDays: updatedStreak,
         lastChantedDate: updatedLastDate,
         mantraBreakdown: updatedBreakdown
@@ -433,22 +444,12 @@ const App: React.FC = () => {
 
     // 3. DB Update: Global Profile
     try {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('total_global_chants')
-            .eq('id', currentUser.id)
-            .single();
-        
-        if (profile) {
-            const newTotal = (profile.total_global_chants || 0) + increment;
-            
-            await supabase.from('profiles').update({
-                total_global_chants: newTotal,
-                mantra_stats: updatedBreakdown, 
-                streak_days: updatedStreak,     
-                last_chanted_date: updatedLastDate 
-            }).eq('id', currentUser.id);
-        }
+        await supabase.from('profiles').update({
+            total_global_chants: newTotalChants,
+            mantra_stats: updatedBreakdown, 
+            streak_days: updatedStreak,     
+            last_chanted_date: updatedLastDate 
+        }).eq('id', currentUser.id);
     } catch(err) {
         console.error("Failed to sync global stats:", err);
     }
