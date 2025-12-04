@@ -129,7 +129,7 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
-  // --- DATA SYNCHRONIZATION ---
+  // --- DATA SYNCHRONIZATION (Strict DB Source) ---
   useEffect(() => {
     if (currentUser) {
       // 1. Load Reminder Settings (Device Specific)
@@ -172,12 +172,23 @@ const App: React.FC = () => {
             }
 
             if (profile) {
+                // Determine mantra breakdown safely
+                let breakdown = [];
+                try {
+                    breakdown = typeof profile.mantra_stats === 'string' 
+                        ? JSON.parse(profile.mantra_stats) 
+                        : profile.mantra_stats || [];
+                } catch (e) {
+                    console.error("Error parsing mantra stats", e);
+                    breakdown = [];
+                }
+
                 // Update local state with DB truth
                 setUserStats(prev => ({
                     ...prev,
                     isPremium: profile.is_premium,
                     totalChants: profile.total_global_chants || 0,
-                    mantraBreakdown: profile.mantra_stats ? (typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats) : [],
+                    mantraBreakdown: breakdown,
                     streakDays: profile.streak_days || 0,
                     lastChantedDate: profile.last_chanted_date || null
                 }));
@@ -191,6 +202,7 @@ const App: React.FC = () => {
       // 3. Load Groups from DB
       const loadGroups = async () => {
         try {
+            // Get all memberships for the current user
             const { data: myMemberships, error: memberError } = await supabase
                 .from('group_members')
                 .select('group_id')
@@ -205,6 +217,7 @@ const App: React.FC = () => {
 
             const groupIds = myMemberships.map(m => m.group_id);
 
+            // Fetch Groups Data
             const { data: groupsData, error: groupsError } = await supabase
                 .from('groups')
                 .select('*')
@@ -212,6 +225,7 @@ const App: React.FC = () => {
             
             if (groupsError) throw groupsError;
 
+            // Fetch All Members Data for these groups (to show counts)
             const { data: allMembers, error: allMembersError } = await supabase
                 .from('group_members')
                 .select('*, profiles(name)')
@@ -232,7 +246,7 @@ const App: React.FC = () => {
                 adminId: g.admin_id,
                 totalGroupCount: g.total_group_chants || 0,
                 isPremium: g.is_premium,
-                announcements: [], 
+                announcements: [], // Not syncing announcements in this MVP useEffect
                 members: allMembers?.filter(m => m.group_id === g.id).map(m => ({
                     id: m.user_id,
                     name: m.profiles?.name || 'Meditator',
@@ -371,60 +385,53 @@ const App: React.FC = () => {
     setPersonalMantras([...personalMantras, newMantra]);
   };
 
+  // CORE UPDATE LOGIC
   const handleUpdateCount = async (increment: number, groupId: string | null, mantraText: string) => {
     if (!currentUser) return;
 
     const today = new Date().toDateString();
     const nowISO = new Date().toISOString();
 
-    // Variables for DB update
-    let updatedBreakdown = [];
-    let updatedStreak = 0;
-    let updatedLastDate = null;
+    // 1. Calculate New Global Stats (Mantra Breakdown + Streak)
+    let updatedBreakdown = [...userStats.mantraBreakdown];
+    let updatedStreak = userStats.streakDays;
+    let updatedLastDate = userStats.lastChantedDate;
 
-    // 1. Update State (Optimistic)
-    setUserStats(prev => {
-        let newStreak = prev.streakDays;
-        const lastDate = prev.lastChantedDate;
-
-        if (lastDate !== today) {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            if (lastDate === yesterday.toDateString()) {
-                newStreak += 1;
-            } else {
-                newStreak = 1;
-            }
-        } else if (newStreak === 0) {
-            newStreak = 1;
-        }
-
-        const existingMantraStats = prev.mantraBreakdown.find(m => m.mantraText === mantraText);
-        let newBreakdown = [...prev.mantraBreakdown];
-
-        if (existingMantraStats) {
-            newBreakdown = newBreakdown.map(m => 
-                m.mantraText === mantraText ? { ...m, totalCount: m.totalCount + increment } : m
-            );
+    // Streak Logic
+    if (updatedLastDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (updatedLastDate === yesterday.toDateString()) {
+            updatedStreak += 1;
         } else {
-            newBreakdown.push({ mantraText, totalCount: increment });
+            updatedStreak = 1;
         }
-        
-        // Capture for DB
-        updatedBreakdown = newBreakdown;
-        updatedStreak = newStreak;
         updatedLastDate = today;
+    } else if (updatedStreak === 0) {
+        updatedStreak = 1;
+        updatedLastDate = today;
+    }
 
-        return {
-            ...prev,
-            totalChants: prev.totalChants + increment,
-            streakDays: newStreak,
-            lastChantedDate: today,
-            mantraBreakdown: newBreakdown
-        };
-    });
+    // Breakdown Logic
+    const existingMantraStats = updatedBreakdown.find(m => m.mantraText === mantraText);
+    if (existingMantraStats) {
+        updatedBreakdown = updatedBreakdown.map(m => 
+            m.mantraText === mantraText ? { ...m, totalCount: m.totalCount + increment } : m
+        );
+    } else {
+        updatedBreakdown.push({ mantraText, totalCount: increment });
+    }
 
-    // 2. DB Update: Global User Stats (Full Sync)
+    // 2. Optimistic UI Update (Global)
+    setUserStats(prev => ({
+        ...prev,
+        totalChants: prev.totalChants + increment,
+        streakDays: updatedStreak,
+        lastChantedDate: updatedLastDate,
+        mantraBreakdown: updatedBreakdown
+    }));
+
+    // 3. DB Update: Global Profile
     try {
         const { data: profile } = await supabase
             .from('profiles')
@@ -437,21 +444,23 @@ const App: React.FC = () => {
             
             await supabase.from('profiles').update({
                 total_global_chants: newTotal,
-                mantra_stats: updatedBreakdown, // Save Breakdown
-                streak_days: updatedStreak,     // Save Streak
-                last_chanted_date: updatedLastDate // Save Last Date
+                mantra_stats: updatedBreakdown, 
+                streak_days: updatedStreak,     
+                last_chanted_date: updatedLastDate 
             }).eq('id', currentUser.id);
         }
     } catch(err) {
         console.error("Failed to sync global stats:", err);
     }
 
-    // 3. DB Update: Group Stats
+    // 4. DB Update: Group Specific (If applicable)
     if (groupId) {
+        // Optimistic UI (Group)
         setGroups(prevGroups => prevGroups.map(g => {
             if (g.id === groupId) {
                 const updatedMembers = g.members.map(m => {
                     if (m.id === currentUser.id) {
+                        // Optimistically append history
                         const newHistoryEntry = { date: nowISO, count: increment };
                         const updatedHistory = [newHistoryEntry, ...(m.history || [])];
                         return { 
@@ -473,6 +482,7 @@ const App: React.FC = () => {
         }));
 
         try {
+            // Fetch current state to ensure append correctness
             const { data: memberData } = await supabase
                 .from('group_members')
                 .select('count, history')
@@ -482,7 +492,12 @@ const App: React.FC = () => {
 
             if (memberData) {
                 const newCount = (memberData.count || 0) + increment;
-                const oldHistory = memberData.history ? (typeof memberData.history === 'string' ? JSON.parse(memberData.history) : memberData.history) : [];
+                // Parse history safely
+                let oldHistory = [];
+                try {
+                    oldHistory = memberData.history ? (typeof memberData.history === 'string' ? JSON.parse(memberData.history) : memberData.history) : [];
+                } catch(e) { oldHistory = []; }
+
                 const newHistory = [{ date: nowISO, count: increment }, ...oldHistory];
 
                 await supabase
@@ -495,6 +510,7 @@ const App: React.FC = () => {
                     .eq('group_id', groupId)
                     .eq('user_id', currentUser.id);
                 
+                // Update Group Total
                 const { data: groupData } = await supabase.from('groups').select('total_group_chants').eq('id', groupId).single();
                 if (groupData) {
                     await supabase.from('groups').update({ total_group_chants: groupData.total_group_chants + increment }).eq('id', groupId);
