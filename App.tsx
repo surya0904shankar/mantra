@@ -183,12 +183,8 @@ const App: React.FC = () => {
                     breakdown = [];
                 }
 
-                // FIX: Calculate Total Chants STRICTLY from breakdown to ensure consistency
+                // FIX: Calculate Total Chants STRICTLY from breakdown sum to ensure consistency with dashboard
                 const calculatedTotal = breakdown.reduce((acc: number, curr: any) => acc + (curr.totalCount || 0), 0);
-                
-                // If DB has a higher total (maybe from a group chant that wasn't synced to personal?), use DB
-                // BUT, to fix discrepancy, ideally we trust the calculated sum.
-                // Let's trust the breakdown sum as primary source of truth for UI consistency.
                 
                 setUserStats(prev => ({
                     ...prev,
@@ -434,7 +430,7 @@ const App: React.FC = () => {
             newBreakdown.push({ mantraText, totalCount: increment });
         }
         
-        // Calculate new total from breakdown to ensure sum is consistent
+        // Calculate new total from breakdown sum to ensure consistency
         const newTotalChants = newBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
 
         // Capture for DB
