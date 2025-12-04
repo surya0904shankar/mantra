@@ -183,18 +183,17 @@ const App: React.FC = () => {
                     breakdown = [];
                 }
 
-                // FIX: Calculate Total Chants from Breakdown to ensure sync
-                // If total_global_chants is 0 but breakdown exists, trust the breakdown sum.
+                // FIX: Calculate Total Chants STRICTLY from breakdown to ensure consistency
                 const calculatedTotal = breakdown.reduce((acc: number, curr: any) => acc + (curr.totalCount || 0), 0);
-                const dbTotal = profile.total_global_chants || 0;
                 
-                // Use the larger of the two to be safe, or strictly calculated
-                const finalTotal = Math.max(calculatedTotal, dbTotal);
-
+                // If DB has a higher total (maybe from a group chant that wasn't synced to personal?), use DB
+                // BUT, to fix discrepancy, ideally we trust the calculated sum.
+                // Let's trust the breakdown sum as primary source of truth for UI consistency.
+                
                 setUserStats(prev => ({
                     ...prev,
                     isPremium: profile.is_premium,
-                    totalChants: finalTotal,
+                    totalChants: calculatedTotal, 
                     mantraBreakdown: breakdown,
                     streakDays: profile.streak_days || 0,
                     lastChantedDate: profile.last_chanted_date || null
@@ -399,62 +398,75 @@ const App: React.FC = () => {
     const today = new Date().toDateString();
     const nowISO = new Date().toISOString();
 
-    // 1. Calculate New Global Stats (Mantra Breakdown + Streak)
-    let updatedBreakdown = [...userStats.mantraBreakdown];
-    let updatedStreak = userStats.streakDays;
-    let updatedLastDate = userStats.lastChantedDate;
+    // Variables for DB update
+    let updatedBreakdown = [];
+    let updatedStreak = 0;
+    let updatedLastDate = null;
 
-    // Streak Logic
-    if (updatedLastDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (updatedLastDate === yesterday.toDateString()) {
-            updatedStreak += 1;
-        } else {
-            updatedStreak = 1;
+    // 1. Update State (Optimistic)
+    setUserStats(prev => {
+        let newStreak = prev.streakDays;
+        const lastDate = prev.lastChantedDate;
+
+        // Streak Logic
+        if (lastDate !== today) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (lastDate === yesterday.toDateString()) {
+                newStreak += 1;
+            } else {
+                newStreak = 1;
+            }
+        } else if (newStreak === 0) {
+            newStreak = 1;
         }
+
+        const existingMantraStats = prev.mantraBreakdown.find(m => m.mantraText === mantraText);
+        let newBreakdown = [...prev.mantraBreakdown];
+
+        // ALWAYS UPDATE BREAKDOWN, even for group chants
+        // This ensures the Personal Sadhana list is always accurate and complete
+        if (existingMantraStats) {
+            newBreakdown = newBreakdown.map(m => 
+                m.mantraText === mantraText ? { ...m, totalCount: m.totalCount + increment } : m
+            );
+        } else {
+            newBreakdown.push({ mantraText, totalCount: increment });
+        }
+        
+        // Calculate new total from breakdown to ensure sum is consistent
+        const newTotalChants = newBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
+
+        // Capture for DB
+        updatedBreakdown = newBreakdown;
+        updatedStreak = newStreak;
         updatedLastDate = today;
-    } else if (updatedStreak === 0) {
-        updatedStreak = 1;
-        updatedLastDate = today;
-    }
 
-    // Breakdown Logic - ALWAYS UPDATE MANTRA HISTORY (Even if in group)
-    // This fixes the "Difference between total vs personal" bug
-    const existingMantraStats = updatedBreakdown.find(m => m.mantraText === mantraText);
-    if (existingMantraStats) {
-        updatedBreakdown = updatedBreakdown.map(m => 
-            m.mantraText === mantraText ? { ...m, totalCount: m.totalCount + increment } : m
-        );
-    } else {
-        updatedBreakdown.push({ mantraText, totalCount: increment });
-    }
+        return {
+            ...prev,
+            totalChants: newTotalChants,
+            streakDays: newStreak,
+            lastChantedDate: today,
+            mantraBreakdown: newBreakdown
+        };
+    });
 
-    // Calculate new total based on breakdown sum to ensure consistency
-    const newTotalChants = updatedBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
-
-    // 2. Optimistic UI Update (Global)
-    setUserStats(prev => ({
-        ...prev,
-        totalChants: newTotalChants,
-        streakDays: updatedStreak,
-        lastChantedDate: updatedLastDate,
-        mantraBreakdown: updatedBreakdown
-    }));
-
-    // 3. DB Update: Global Profile
+    // 2. DB Update: Global User Stats (Full Sync)
+    // We update 'total_global_chants' AND 'mantra_stats' every time.
     try {
+        const newTotal = updatedBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
+        
         await supabase.from('profiles').update({
-            total_global_chants: newTotalChants,
-            mantra_stats: updatedBreakdown, 
-            streak_days: updatedStreak,     
-            last_chanted_date: updatedLastDate 
+            total_global_chants: newTotal,
+            mantra_stats: updatedBreakdown, // Save Breakdown (JSON)
+            streak_days: updatedStreak,     // Save Streak
+            last_chanted_date: updatedLastDate // Save Last Date
         }).eq('id', currentUser.id);
     } catch(err) {
         console.error("Failed to sync global stats:", err);
     }
 
-    // 4. DB Update: Group Specific (If applicable)
+    // 3. DB Update: Group Specific (If applicable)
     if (groupId) {
         // Optimistic UI (Group)
         setGroups(prevGroups => prevGroups.map(g => {
