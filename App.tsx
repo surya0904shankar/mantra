@@ -131,6 +131,7 @@ const App: React.FC = () => {
   }, []);
 
   // --- DATA SYNCHRONIZATION ---
+  // Replaces all local storage logic with Supabase loading
   useEffect(() => {
     if (currentUser) {
       // 1. Load Reminder Settings (Device Specific)
@@ -184,8 +185,7 @@ const App: React.FC = () => {
                     breakdown = [];
                 }
 
-                // FIX: Calculate Total Chants STRICTLY from breakdown sum to ensure consistency
-                // This prevents "Total" from drifting away from the sum of its parts
+                // FIX: Calculate Total Chants STRICTLY from breakdown sum to ensure consistency with dashboard
                 const calculatedTotal = breakdown.reduce((acc: number, curr: any) => acc + (curr.totalCount || 0), 0);
                 
                 setUserStats(prev => ({
@@ -274,14 +274,6 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  // Helper for consistent date strings
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   const handleCreateGroup = async (newGroup: Group) => {
     if (!currentUser) return;
 
@@ -346,7 +338,7 @@ const App: React.FC = () => {
             .maybeSingle();
 
         if (existingMember) {
-             alert(`You are already in this group: ${groupData.name}`);
+             alert("You are already in this group.");
              return;
         }
 
@@ -398,6 +390,14 @@ const App: React.FC = () => {
     setPersonalMantras([...personalMantras, newMantra]);
   };
 
+  // Helper for consistent YYYY-MM-DD date strings
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // CORE UPDATE LOGIC
   const handleUpdateCount = async (increment: number, groupId: string | null, mantraText: string) => {
     if (!currentUser) return;
@@ -429,7 +429,7 @@ const App: React.FC = () => {
 
     // 2. Breakdown Logic - CRITICAL FIX
     // ALWAYS update the breakdown history, regardless of whether it's a group chant or personal.
-    // This ensures the "Total Count" (sum of breakdowns) stays in sync.
+    // This ensures the "Total Count" (sum of breakdowns) stays in sync with actual activity.
     updatedBreakdown = [...userStats.mantraBreakdown];
     const existingMantraStats = updatedBreakdown.find(m => m.mantraText === mantraText);
     
@@ -441,7 +441,7 @@ const App: React.FC = () => {
         updatedBreakdown.push({ mantraText, totalCount: increment });
     }
     
-    // Calculate new total from breakdown sum (Single Source of Truth)
+    // Calculate new total strictly from breakdown sum (Single Source of Truth)
     const newTotalChants = updatedBreakdown.reduce((acc, curr) => acc + curr.totalCount, 0);
 
     // 3. Optimistic UI Update (Global)
@@ -459,7 +459,7 @@ const App: React.FC = () => {
             total_global_chants: newTotalChants,
             mantra_stats: updatedBreakdown, // Save Breakdown (JSON)
             streak_days: updatedStreak,     // Save Streak
-            last_chanted_date: updatedLastDate // Save Last Date
+            last_chanted_date: updatedLastDate // Save Last Date (YYYY-MM-DD)
         }).eq('id', currentUser.id);
     } catch(err) {
         console.error("Failed to sync global stats:", err);
@@ -494,6 +494,7 @@ const App: React.FC = () => {
         }));
 
         try {
+            // Fetch current state to ensure append correctness
             const { data: memberData } = await supabase
                 .from('group_members')
                 .select('count, history')
@@ -503,6 +504,7 @@ const App: React.FC = () => {
 
             if (memberData) {
                 const newCount = (memberData.count || 0) + increment;
+                // Parse history safely
                 let oldHistory = [];
                 try {
                     oldHistory = memberData.history ? (typeof memberData.history === 'string' ? JSON.parse(memberData.history) : memberData.history) : [];

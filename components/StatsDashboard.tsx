@@ -26,11 +26,9 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
   }));
 
   // Calculate Personal Sadhana
-  // Strategy: We rely on the mantraBreakdown being the definitive source of truth for ALL chanting activity by the user.
-  // The user requested "Individual chants excluding group activity" for this list.
-  // We can attempt to subtract group counts if they overlap, OR just show the full breakdown as "Personal Sadhana" 
-  // since group chanting IS a form of personal sadhana. 
-  // However, to satisfy the request strictly, we subtract known group counts.
+  // The goal: Show "Individual chants excluding group activity".
+  // App.tsx now saves ALL chants (Group + Personal) into userStats.mantraBreakdown.
+  // So, to get "Personal Only", we calculate: Total for Mantra X - Group Chants for Mantra X.
   
   const groupCountsByMantra: Record<string, number> = {};
   myGroups.forEach(group => {
@@ -43,9 +41,6 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
 
   const personalSadhanaData = userStats.mantraBreakdown.map(m => {
     const groupContribution = groupCountsByMantra[m.mantraText] || 0;
-    // If the breakdown tracks total, subtracting gives personal.
-    // If the breakdown ONLY tracked personal (old logic), we wouldn't subtract.
-    // The new App.tsx logic tracks TOTAL in breakdown. So subtraction is correct for "exclusive" view.
     const personalCount = m.totalCount - groupContribution; 
     
     return {
@@ -160,6 +155,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
           </div>
           <div className="relative z-10">
             <p className="text-sm text-stone-500 font-bold uppercase tracking-wider font-serif">Total Chants</p>
+            {/* The "Total" displayed here is now consistent with the underlying data source */}
             <p className="text-3xl font-display font-bold text-stone-800">{userStats.totalChants.toLocaleString()}</p>
           </div>
         </div>
