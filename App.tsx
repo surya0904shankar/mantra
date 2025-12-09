@@ -1,19 +1,29 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
-import StatsDashboard from './components/StatsDashboard';
-import MantraCounter from './components/MantraCounter';
-import GroupAdmin from './components/GroupAdmin';
-import SubscriptionModal from './components/SubscriptionModal';
-import AuthScreen from './components/AuthScreen';
+// Lazy load components to improve initial load performance
+const StatsDashboard = lazy(() => import('./components/StatsDashboard'));
+const MantraCounter = lazy(() => import('./components/MantraCounter'));
+const GroupAdmin = lazy(() => import('./components/GroupAdmin'));
+const SubscriptionModal = lazy(() => import('./components/SubscriptionModal'));
+const AuthScreen = lazy(() => import('./components/AuthScreen'));
+
 import { authService } from './services/auth';
 import { supabase } from './lib/supabaseClient';
-import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock } from 'lucide-react';
+import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock, Loader2 } from 'lucide-react';
+
+// Loading Fallback Component
+const PageLoader = () => (
+  <div className="flex h-full w-full items-center justify-center min-h-[50vh] animate-in fade-in">
+    <Loader2 className="w-8 h-8 text-saffron-500 animate-spin" />
+  </div>
+);
 
 // Navigation Button Component for Sidebar
 const NavButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) => (
   <button 
     onClick={onClick}
+    aria-label={label}
     className={`flex md:w-full flex-col md:items-center lg:flex-row lg:justify-start lg:gap-3 p-2 md:py-4 lg:px-4 rounded-xl transition-all duration-200 group ${
       active 
         ? 'text-saffron-600 dark:text-saffron-400 bg-saffron-50 dark:bg-saffron-900/20 font-bold' 
@@ -131,7 +141,6 @@ const App: React.FC = () => {
   }, []);
 
   // --- DATA SYNCHRONIZATION ---
-  // Replaces all local storage logic with Supabase loading
   useEffect(() => {
     if (currentUser) {
       // 1. Load Reminder Settings (Device Specific)
@@ -577,19 +586,33 @@ const App: React.FC = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  if (isAuthChecking) return <div className="h-screen flex items-center justify-center bg-stone-50 text-stone-400 font-serif dark:bg-stone-950 dark:text-stone-500">Loading Sacred Space...</div>;
+  if (isAuthChecking) return <div className="h-screen flex items-center justify-center bg-stone-50 text-stone-400 font-serif dark:bg-stone-950 dark:text-stone-500">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 bg-gradient-to-br from-saffron-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg text-white font-display font-bold text-2xl animate-pulse">OM</div>
+      <p className="font-serif">Loading Sacred Space...</p>
+    </div>
+  </div>;
 
   if (!currentUser) {
-    return <AuthScreen onAuthSuccess={setCurrentUser} />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <AuthScreen onAuthSuccess={setCurrentUser} />
+      </Suspense>
+    );
   }
 
   const renderContent = () => {
-    switch (currentView) {
-      case View.DASHBOARD:
-        return <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} onUpgradeClick={() => setShowSubscriptionModal(true)} />;
-      case View.GROUPS:
-      case View.CREATE_GROUP:
-        return (
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {currentView === View.DASHBOARD && (
+          <StatsDashboard 
+            userStats={userStats} 
+            groups={groups} 
+            currentUser={currentUser} 
+            onUpgradeClick={() => setShowSubscriptionModal(true)} 
+          />
+        )}
+        {(currentView === View.GROUPS || currentView === View.CREATE_GROUP) && (
           <GroupAdmin 
             groups={groups} 
             onCreateGroup={handleCreateGroup} 
@@ -601,29 +624,29 @@ const App: React.FC = () => {
             currentUserName={currentUser.name}
             onAddAnnouncement={handleAddAnnouncement}
           />
-        );
-      case View.COUNTER:
-        return (
+        )}
+        {currentView === View.COUNTER && (
           <MantraCounter 
             activeGroup={activeGroup} 
             personalMantras={personalMantras}
             onUpdateCount={handleUpdateCount} 
             onAddPersonalMantra={handleAddPersonalMantra}
           />
-        );
-      default:
-        return <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} onUpgradeClick={() => setShowSubscriptionModal(true)} />;
-    }
+        )}
+      </Suspense>
+    );
   };
 
   return (
     <div className="min-h-screen bg-sacred-pattern text-stone-900 dark:text-stone-100 flex flex-col md:flex-row overflow-hidden font-sans relative transition-colors duration-300">
       
-      <SubscriptionModal 
-        isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-        onUpgrade={handleUpgrade}
-      />
+      <Suspense fallback={null}>
+        <SubscriptionModal 
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          onUpgrade={handleUpgrade}
+        />
+      </Suspense>
 
       {showSettings && (
         <div className="fixed inset-0 bg-mystic-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
