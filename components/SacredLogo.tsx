@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { generateAppIcon } from '../services/imageService';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Download } from 'lucide-react';
 
 interface SacredLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -29,6 +29,17 @@ const SacredLogo: React.FC<SacredLogoProps> = ({ size = 'md', className = '' }) 
     setIsGenerating(false);
   };
 
+  const downloadLogo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!iconUrl) return;
+    const link = document.createElement('a');
+    link.href = iconUrl;
+    link.download = 'OmCounter_Sacred_Logo.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => {
     if (!iconUrl && !isGenerating) {
       handleGenerate();
@@ -49,20 +60,28 @@ const SacredLogo: React.FC<SacredLogoProps> = ({ size = 'md', className = '' }) 
         <img 
           src={iconUrl} 
           alt="OmCounter Icon" 
-          className={`${sizes[size]} rounded-xl shadow-lg border border-white/20 dark:border-stone-700 object-cover`}
+          className={`${sizes[size]} rounded-xl shadow-lg border border-white/20 dark:border-stone-700 object-cover transition-transform group-hover:scale-105`}
         />
-        <button 
-          onClick={handleGenerate}
-          className="absolute -top-1 -right-1 bg-white dark:bg-stone-800 rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity border border-stone-100 dark:border-stone-700"
-          title="Regenerate Sacred Icon"
-        >
-          <Sparkles size={10} className="text-saffron-500" />
-        </button>
+        <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={downloadLogo}
+            className="bg-white dark:bg-stone-800 rounded-full p-1.5 shadow-md border border-stone-100 dark:border-stone-700 hover:text-saffron-500"
+            title="Download Logo"
+          >
+            <Download size={10} />
+          </button>
+          <button 
+            onClick={handleGenerate}
+            className="bg-white dark:bg-stone-800 rounded-full p-1.5 shadow-md border border-stone-100 dark:border-stone-700 hover:text-saffron-500"
+            title="Regenerate Sacred Icon"
+          >
+            <Sparkles size={10} />
+          </button>
+        </div>
       </div>
     );
   }
 
-  // Fallback
   return (
     <div className={`${sizes[size]} bg-gradient-to-br from-saffron-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg text-white font-display font-bold ${className}`}>
       OM
