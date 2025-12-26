@@ -95,8 +95,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                     <Sparkles size={20} />
                   </div>
                   <div>
-                    <p className="font-bold text-stone-800 dark:text-stone-100">AI Wisdom Insights</p>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">Extended Gemini guidance and mantra historical context.</p>
+                    <p className="font-bold text-stone-800 dark:text-stone-100">Inform Members</p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">Access to post in Sangha Notice Board.</p>
                   </div>
                 </div>
               </div>
