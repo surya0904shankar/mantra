@@ -95,10 +95,28 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           <div className="flex items-center gap-4 mb-6"><div className="h-px bg-stone-200 dark:bg-stone-700 flex-1"></div><span className="text-xs text-stone-400 font-medium uppercase">or email</span><div className="h-px bg-stone-200 dark:bg-stone-700 flex-1"></div></div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div className="space-y-1"><label className="text-xs font-bold text-stone-500 uppercase ml-1">Full Name</label><div className="relative"><User className="absolute left-3 top-3 text-stone-400" size={18} /><input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white" placeholder="Enter your name" /></div></div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-stone-500 uppercase ml-1">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 text-stone-400" size={18} />
+                  <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white text-black" placeholder="Enter your name" />
+                </div>
+              </div>
             )}
-            <div className="space-y-1"><label className="text-xs font-bold text-stone-500 uppercase ml-1">Email Address</label><div className="relative"><Mail className="absolute left-3 top-3 text-stone-400" size={18} /><input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white" placeholder="hello@example.com" /></div></div>
-            <div className="space-y-1"><label className="text-xs font-bold text-stone-500 uppercase ml-1">Password</label><div className="relative"><Lock className="absolute left-3 top-3 text-stone-400" size={18} /><input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white dark:bg-stone-800 text-stone-900 dark:text-white" placeholder="••••••••" /></div></div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-stone-500 uppercase ml-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 text-stone-400" size={18} />
+                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white text-black" placeholder="hello@example.com" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-stone-500 uppercase ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 text-stone-400" size={18} />
+                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-saffron-400 focus:outline-none transition-shadow bg-white text-black" placeholder="••••••••" />
+              </div>
+            </div>
             {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-sm rounded-lg text-center">{error}</div>}
             <button type="submit" disabled={isLoading} className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold text-lg hover:bg-stone-800 dark:hover:bg-stone-200 shadow-lg shadow-stone-200 dark:shadow-none transition-transform active:scale-[0.98] flex items-center justify-center gap-2 mt-4">
               {isLoading ? <Loader2 className="animate-spin" /> : <>{isLogin ? 'Log In' : 'Create Account'} <ArrowRight size={20} /></>}

@@ -15,7 +15,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  lastLogin?: string; // Added for Excel report
+  lastLogin?: string;
 }
 
 export interface UserStats {
@@ -23,7 +23,7 @@ export interface UserStats {
   streakDays: number;
   lastChantedDate: string | null;
   mantraBreakdown: MantraStats[];
-  isPremium: boolean; // Added subscription status
+  isPremium: boolean;
 }
 
 export interface ReminderSettings {
@@ -41,7 +41,7 @@ export interface Member {
   name: string;
   count: number;
   lastActive: string;
-  history?: MemberHistoryEntry[]; // Added for detailed logs
+  history?: MemberHistoryEntry[];
 }
 
 export interface Announcement {
@@ -56,11 +56,11 @@ export interface Group {
   name: string;
   description: string;
   mantra: Mantra;
-  adminId: string; // The user who created it
+  adminId: string;
   members: Member[];
   totalGroupCount: number;
   announcements: Announcement[];
-  isPremium?: boolean; // Determines if the group has raised limits
+  isPremium?: boolean;
 }
 
 export enum View {
@@ -74,9 +74,9 @@ export interface AIResponse {
   text: string;
 }
 
-// Fixed: Exported PracticePreferences used by MantraCounter component
 export interface PracticePreferences {
-  sound: 'TEMPLE_BELL' | 'WOODEN_MALA' | 'SILENCE';
+  sound: 'TEMPLE_BELL' | 'WOODEN_MALA' | 'RAIN_FALL' | 'SILENCE';
+  ambianceSound: 'DEEP_OM' | 'MORNING_BIRDS' | 'FOREST_WIND' | 'OFF';
   hapticStrength: 'SOFT' | 'MEDIUM' | 'STRONG' | 'OFF';
   lowLightMode: boolean;
 }
