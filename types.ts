@@ -73,3 +73,10 @@ export enum View {
 export interface AIResponse {
   text: string;
 }
+
+// Fixed: Exported PracticePreferences used by MantraCounter component
+export interface PracticePreferences {
+  sound: 'TEMPLE_BELL' | 'WOODEN_MALA' | 'SILENCE';
+  hapticStrength: 'SOFT' | 'MEDIUM' | 'STRONG' | 'OFF';
+  lowLightMode: boolean;
+}

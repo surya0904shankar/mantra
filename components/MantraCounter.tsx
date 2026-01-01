@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
-import { Plus, RotateCcw, BookOpen, Loader2, Edit2, Check, ChevronDown, Save, X } from 'lucide-react';
-import { Group, Mantra } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, RotateCcw, BookOpen, Loader2, Check, ChevronDown, Save, X, Maximize2, Minimize2, Settings2, Volume2, Zap, Moon, Sun } from 'lucide-react';
+import { Group, Mantra, PracticePreferences } from '../types';
 import { getMantraInsight } from '../services/geminiService';
 
 interface MantraCounterProps {
@@ -9,37 +9,94 @@ interface MantraCounterProps {
   personalMantras: Mantra[];
   onUpdateCount: (increment: number, groupId: string | null, mantraText: string) => void;
   onAddPersonalMantra: (text: string, target: number) => void;
+  isPremium: boolean;
+  onUpgradeClick: () => void;
 }
 
-const MantraCounter: React.FC<MantraCounterProps> = ({ activeGroup, personalMantras, onUpdateCount, onAddPersonalMantra }) => {
+const MantraCounter: React.FC<MantraCounterProps> = ({ 
+  activeGroup, 
+  personalMantras, 
+  onUpdateCount, 
+  onAddPersonalMantra,
+  isPremium,
+  onUpgradeClick
+}) => {
   const [sessionCount, setSessionCount] = useState(0);
   const [insight, setInsight] = useState<string | null>(null);
   const [isLoadingInsight, setIsLoadingInsight] = useState(false);
   const [manualInput, setManualInput] = useState<string>('');
   const [isManualMode, setIsManualMode] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
-  // Personal Mantra Selection State
+  // Practice Preferences
+  const [prefs, setPrefs] = useState<PracticePreferences>({
+    sound: 'TEMPLE_BELL',
+    hapticStrength: 'SOFT',
+    lowLightMode: false
+  });
+
+  // Selection State
   const [selectedPersonalMantraId, setSelectedPersonalMantraId] = useState<string>(personalMantras[0]?.id || '');
   const [isCreatingMantra, setIsCreatingMantra] = useState(false);
   const [newMantraText, setNewMantraText] = useState('');
-  
-  // Animation state for commit
   const [isCommitting, setIsCommitting] = useState(false);
 
   const activeMantra = activeGroup 
     ? activeGroup.mantra 
     : personalMantras.find(m => m.id === selectedPersonalMantraId) || { text: 'Om Namah Shivaya', targetCount: 108, meaning: '' };
 
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Audio Context for premium sounds
+  const audioCtx = useRef<AudioContext | null>(null);
+
+  const playChantSound = () => {
+    if (prefs.sound === 'SILENCE') return;
+    
+    if (!audioCtx.current) {
+      audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    
+    const osc = audioCtx.current.createOscillator();
+    const gain = audioCtx.current.createGain();
+    
+    if (prefs.sound === 'TEMPLE_BELL') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, audioCtx.current.currentTime);
+      gain.gain.setValueAtTime(0.2, audioCtx.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.current.currentTime + 1.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.current.destination);
+      osc.start();
+      osc.stop(audioCtx.current.currentTime + 1.2);
+    } else if (prefs.sound === 'WOODEN_MALA') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, audioCtx.current.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.current.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.current.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(audioCtx.current.destination);
+      osc.start();
+      osc.stop(audioCtx.current.currentTime + 0.1);
+    }
+  };
+
+  const handleVibration = () => {
+    if (prefs.hapticStrength === 'OFF') return;
+    if (navigator.vibrate) {
+      const patterns = {
+        SOFT: [15],
+        MEDIUM: [35],
+        STRONG: [60]
+      };
+      navigator.vibrate(patterns[prefs.hapticStrength]);
+    }
+  };
 
   const handleTap = () => {
     setSessionCount(prev => prev + 1);
-    // We still update global state incrementally so data isn't lost if they close app
     onUpdateCount(1, activeGroup?.id || null, activeMantra.text);
-    
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
-    }
+    handleVibration();
+    playChantSound();
   };
 
   const handleManualSubmit = () => {
@@ -55,11 +112,10 @@ const MantraCounter: React.FC<MantraCounterProps> = ({ activeGroup, personalMant
   const handleFinishSession = () => {
     if (sessionCount === 0) return;
     setIsCommitting(true);
-    
-    // Visual effect of offering/saving
     setTimeout(() => {
       setSessionCount(0);
       setIsCommitting(false);
+      if (isZenMode) setIsZenMode(false);
     }, 1500);
   };
 
@@ -70,25 +126,111 @@ const MantraCounter: React.FC<MantraCounterProps> = ({ activeGroup, personalMant
     setIsLoadingInsight(false);
   };
 
-  const handleCreateMantra = () => {
-    if (newMantraText.trim()) {
-      onAddPersonalMantra(newMantraText, 108);
-      setNewMantraText('');
-      setIsCreatingMantra(false);
+  const toggleZenMode = () => {
+    if (!isPremium) {
+      onUpgradeClick();
+      return;
     }
+    setIsZenMode(!isZenMode);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto w-full py-6 animate-in zoom-in-95 duration-500">
+    <div className={`flex flex-col items-center justify-center transition-all duration-700 ${isZenMode ? 'fixed inset-0 z-[100] bg-stone-950 p-6' : 'h-full max-w-md mx-auto w-full py-6'} ${prefs.lowLightMode || isZenMode ? 'dark' : ''}`}>
       
-      {/* Header Info */}
-      <div className="text-center mb-6 w-full">
-        <span className="px-4 py-1.5 bg-mystic-100 text-mystic-800 dark:bg-mystic-900 dark:text-mystic-200 rounded-full text-xs font-bold uppercase tracking-widest mb-6 inline-block shadow-sm font-serif">
-          {activeGroup ? activeGroup.name : "Personal Sadhana"}
-        </span>
+      {/* Zen Mode Close & Settings */}
+      {isZenMode && (
+        <button 
+          onClick={() => setIsZenMode(false)}
+          className="absolute top-10 right-10 p-4 bg-white/5 hover:bg-white/10 rounded-full text-stone-400 transition-colors"
+        >
+          <Minimize2 size={24} />
+        </button>
+      )}
 
-        {/* Context Switching (Only if not in group) */}
-        {!activeGroup && (
+      {/* Header Info */}
+      <div className={`text-center mb-8 w-full ${isZenMode ? 'mt-auto' : 'animate-in zoom-in-95 duration-500'}`}>
+        {!isZenMode && (
+          <div className="flex justify-between items-center mb-6">
+            <span className="px-4 py-1.5 bg-mystic-50 text-mystic-700 dark:bg-stone-800 dark:text-stone-300 rounded-full text-xs font-bold uppercase tracking-widest font-serif shadow-sm">
+              {activeGroup ? activeGroup.name : "Personal Sadhana"}
+            </span>
+            <div className="flex gap-2">
+               <button 
+                onClick={toggleZenMode}
+                className={`p-2 transition-colors ${isPremium ? 'text-saffron-500 hover:text-saffron-600' : 'text-stone-300'}`}
+                title="Zen Mode"
+               >
+                <Maximize2 size={18} />
+               </button>
+               <button 
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors"
+               >
+                <Settings2 size={18} />
+               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Practice Settings Popover */}
+        {showSettings && !isZenMode && (
+          <div className="bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 rounded-2xl p-5 shadow-2xl mb-6 text-left animate-in slide-in-from-top-2">
+             <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                  <Zap size={14} className="text-saffron-500" /> Practice Experience
+                </h4>
+                {!isPremium && <span className="text-[10px] bg-saffron-500 text-white px-2 py-0.5 rounded font-bold">PREMIUM</span>}
+             </div>
+             
+             <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-stone-500 uppercase">Bell Sound</p>
+                  <div className="flex gap-1.5">
+                    {(['TEMPLE_BELL', 'WOODEN_MALA', 'SILENCE'] as const).map(s => (
+                      <button 
+                        key={s}
+                        disabled={!isPremium && s !== 'TEMPLE_BELL'}
+                        onClick={() => setPrefs({...prefs, sound: s})}
+                        className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${prefs.sound === s ? 'bg-stone-900 text-white border-stone-900' : 'bg-stone-50 dark:bg-stone-800 border-stone-100 dark:border-stone-700 text-stone-600'}`}
+                      >
+                        {s.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-stone-500 uppercase">Haptic Strength</p>
+                  <div className="flex gap-1.5">
+                    {(['SOFT', 'MEDIUM', 'STRONG', 'OFF'] as const).map(h => (
+                      <button 
+                        key={h}
+                        disabled={!isPremium && h !== 'SOFT'}
+                        onClick={() => setPrefs({...prefs, hapticStrength: h})}
+                        className={`flex-1 py-2 text-[10px] font-bold rounded-lg border transition-all ${prefs.hapticStrength === h ? 'bg-mystic-600 text-white border-mystic-600' : 'bg-stone-50 dark:bg-stone-800 border-stone-100 dark:border-stone-700 text-stone-600'}`}
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                   <p className="text-[10px] font-bold text-stone-500 uppercase">Low Light Chanting</p>
+                   <button 
+                    disabled={!isPremium}
+                    onClick={() => setPrefs({...prefs, lowLightMode: !prefs.lowLightMode})}
+                    className={`w-10 h-5 rounded-full transition-colors relative ${prefs.lowLightMode ? 'bg-saffron-500' : 'bg-stone-200'}`}
+                   >
+                     <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${prefs.lowLightMode ? 'left-6' : 'left-1'}`} />
+                   </button>
+                </div>
+             </div>
+          </div>
+        )}
+
+        {/* Mantra Header */}
+        {!activeGroup && !isZenMode && (
            <div className="mb-4 relative inline-block w-full max-w-xs">
               {isCreatingMantra ? (
                 <div className="flex gap-2 animate-in fade-in">
@@ -96,163 +238,129 @@ const MantraCounter: React.FC<MantraCounterProps> = ({ activeGroup, personalMant
                     type="text" 
                     value={newMantraText}
                     onChange={(e) => setNewMantraText(e.target.value)}
-                    placeholder="Enter new mantra..."
-                    className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-saffron-400 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                    placeholder="New mantra..."
+                    className="w-full px-3 py-2 text-sm border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
                     autoFocus
                   />
-                  <button onClick={handleCreateMantra} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-3 rounded-lg text-xs font-bold">OK</button>
-                  <button onClick={() => setIsCreatingMantra(false)} className="bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 px-3 rounded-lg text-xs">X</button>
+                  <button onClick={() => { if(newMantraText) onAddPersonalMantra(newMantraText, 108); setIsCreatingMantra(false); }} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-3 rounded-lg text-xs font-bold">OK</button>
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-2 relative group">
+                <div className="flex items-center justify-center gap-2 relative">
                    <select 
                     value={selectedPersonalMantraId}
-                    onChange={(e) => {
-                      if (e.target.value === 'add_new') {
-                        setIsCreatingMantra(true);
-                      } else {
-                        setSelectedPersonalMantraId(e.target.value);
-                        setSessionCount(0); 
-                      }
-                    }}
-                    className="appearance-none bg-transparent text-2xl md:text-3xl font-display font-bold text-stone-800 dark:text-stone-100 text-center focus:outline-none cursor-pointer hover:text-saffron-600 transition-colors w-full pr-6 truncate"
+                    onChange={(e) => e.target.value === 'add_new' ? setIsCreatingMantra(true) : setSelectedPersonalMantraId(e.target.value)}
+                    className="appearance-none bg-transparent text-2xl md:text-3xl font-display font-bold text-stone-800 dark:text-stone-100 text-center focus:outline-none cursor-pointer w-full pr-6 truncate"
                    >
                      {personalMantras.map(m => (
-                       <option key={m.id} value={m.id} className="bg-white text-stone-900 dark:bg-stone-900 dark:text-white">{m.text}</option>
+                       <option key={m.id} value={m.id}>{m.text}</option>
                      ))}
-                     <option value="add_new" className="text-saffron-600 font-bold bg-white dark:bg-stone-900">+ Add New Mantra</option>
+                     <option value="add_new" className="text-saffron-600 font-bold">+ Create New</option>
                    </select>
-                   <ChevronDown size={20} className="text-stone-400 pointer-events-none absolute right-0 top-1/2 -translate-y-1/2" />
+                   <ChevronDown size={20} className="text-stone-300 pointer-events-none absolute right-0" />
                 </div>
               )}
            </div>
         )}
 
-        {activeGroup && (
-            <h1 className="text-2xl md:text-3xl font-display font-bold text-stone-800 dark:text-stone-100 mt-2 leading-snug px-4">
+        {(activeGroup || isZenMode) && (
+            <h1 className={`${isZenMode ? 'text-4xl md:text-5xl text-stone-100' : 'text-2xl md:text-3xl text-stone-800 dark:text-stone-100'} font-display font-bold mt-2 leading-tight px-6`}>
               {activeMantra.text}
             </h1>
         )}
         
-        {/* Meaning/Translation Subtitle */}
-        {activeMantra.meaning && (
-          <p className="text-stone-500 dark:text-stone-400 text-sm italic font-serif mt-2 max-w-sm mx-auto px-4">
-            "{activeMantra.meaning}"
-          </p>
+        {activeMantra.meaning && !isZenMode && (
+          <p className="text-stone-500 dark:text-stone-400 text-sm italic font-serif mt-2 px-6">"{activeMantra.meaning}"</p>
         )}
 
-        <button 
-          onClick={() => insight ? setInsight(null) : fetchInsight()}
-          className="mt-4 text-saffron-600 hover:text-saffron-700 dark:text-saffron-400 dark:hover:text-saffron-300 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 mx-auto transition-colors"
-        >
-          {isLoadingInsight ? <Loader2 size={14} className="animate-spin"/> : <BookOpen size={14} />}
-          {insight ? "Hide Wisdom" : "Unlock Wisdom"}
-        </button>
+        {!isZenMode && (
+          <button 
+            onClick={() => insight ? setInsight(null) : fetchInsight()}
+            className="mt-5 text-saffron-600 dark:text-saffron-400 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 mx-auto"
+          >
+            {isLoadingInsight ? <Loader2 size={14} className="animate-spin"/> : <BookOpen size={14} />}
+            {insight ? "Hide Wisdom" : "Unlock Wisdom"}
+          </button>
+        )}
       </div>
 
-      {/* AI Insight Card */}
-      {insight && (
-        <div className="bg-gradient-to-br from-saffron-50 to-orange-50 dark:from-stone-800 dark:to-stone-800 border border-saffron-100 dark:border-stone-700 p-5 rounded-2xl mb-6 text-stone-700 dark:text-stone-300 text-sm leading-relaxed max-w-sm text-center shadow-md shadow-saffron-100 dark:shadow-none animate-in fade-in slide-in-from-top-2 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-saffron-300 to-orange-400"></div>
-          <p className="font-serif">{insight}</p>
-        </div>
-      )}
-
       {/* Main Counter Display */}
-      <div className="relative mb-8 group">
-        <div className="absolute inset-0 bg-gradient-to-tr from-saffron-200 to-mystic-200 dark:from-saffron-900/20 dark:to-mystic-900/20 rounded-full blur-3xl opacity-30 group-hover:opacity-40 transition-opacity duration-700 animate-pulse"></div>
-        <div className="relative w-72 h-72 bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border-[6px] border-stone-50 dark:border-stone-800 flex flex-col items-center justify-center transition-all duration-200 active:scale-[0.98]">
+      <div 
+        className="relative mb-10 group cursor-pointer"
+        onClick={isZenMode ? handleTap : undefined}
+      >
+        {/* Breath Pacing Ring (Zen Mode Only) */}
+        {isZenMode && (
+          <div className="absolute inset-[-60px] border-2 border-white/10 rounded-full animate-breath"></div>
+        )}
+        
+        <div className={`relative ${isZenMode ? 'w-80 h-80 bg-white/5 border-white/10' : 'w-72 h-72 bg-white/90 dark:bg-stone-900/90 border-stone-50 dark:border-stone-800'} backdrop-blur-md rounded-full shadow-2xl border-[6px] flex flex-col items-center justify-center transition-all duration-300 active:scale-[0.97]`}>
            {isCommitting ? (
              <div className="flex flex-col items-center animate-in zoom-in duration-500">
                 <Check size={64} className="text-green-500 mb-2" />
-                <span className="text-stone-500 dark:text-stone-400 font-serif">Offering Accepted</span>
+                <span className="text-stone-500 font-serif">Accepted</span>
              </div>
            ) : (
              <>
-               <div className="text-7xl font-bold text-stone-800 dark:text-stone-100 font-display tracking-tighter">
+               <div className={`${isZenMode ? 'text-8xl text-stone-100' : 'text-7xl text-stone-800 dark:text-stone-100'} font-bold font-display tracking-tight`}>
                  {sessionCount}
                </div>
-               <div className="text-stone-400 text-sm mt-2 font-medium font-serif">
-                 / {activeMantra.targetCount}
-               </div>
+               <div className="text-stone-400 text-sm mt-2 font-serif">/ {activeMantra.targetCount}</div>
              </>
            )}
         </div>
       </div>
 
       {/* Controls */}
-      <div className="w-full space-y-4 px-4">
-        
-        {/* Tap Button */}
-        <button
-          ref={buttonRef}
-          onClick={handleTap}
-          className={`w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-stone-200 dark:shadow-none active:scale-95 transition-all flex items-center justify-center gap-2 ${isManualMode ? 'hidden' : 'block'}`}
-        >
-          <Plus size={24} /> Chant
-        </button>
+      <div className={`w-full max-w-sm space-y-4 px-6 ${isZenMode ? 'mb-auto' : ''}`}>
+        {!isZenMode && (
+          <button
+            onClick={handleTap}
+            className={`w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${isManualMode ? 'hidden' : 'block'}`}
+          >
+            <Plus size={24} /> Chant
+          </button>
+        )}
 
-        {/* Action Bar */}
         <div className="flex items-center justify-center gap-3">
-          {/* Manual Input Toggle */}
-          {!isManualMode ? (
+          {!isZenMode && (
             <button 
-              onClick={() => setIsManualMode(true)}
-              className="p-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors"
-              title="Manual Entry"
+              onClick={() => setIsManualMode(!isManualMode)}
+              className="p-4 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-500 rounded-xl hover:bg-stone-50 transition-colors"
             >
-              123
+              <Zap size={20} className={isPremium ? 'text-saffron-500' : ''} />
             </button>
-          ) : (
-            <div className="flex-1 flex gap-2 animate-in fade-in slide-in-from-bottom-2">
+          )}
+          
+          <button 
+            onClick={handleFinishSession}
+            disabled={sessionCount === 0}
+            className={`flex-1 ${isZenMode ? 'bg-white/10 text-stone-300 border border-white/5' : 'bg-mystic-600 text-white'} py-4 px-6 rounded-xl font-bold shadow-lg disabled:opacity-50 transition-all flex items-center justify-center gap-2`}
+          >
+            <Save size={18} /> Finish Session
+          </button>
+        </div>
+      </div>
+
+      {/* Manual Input Overlay */}
+      {isManualMode && (
+         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
+            <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl w-full max-w-xs shadow-2xl animate-in zoom-in-95">
+               <h4 className="font-serif font-bold text-xl text-stone-800 dark:text-stone-100 mb-4">Manual Entry</h4>
                <input 
                  type="number" 
                  value={manualInput}
                  onChange={(e) => setManualInput(e.target.value)}
-                 placeholder="Count"
-                 className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-saffron-400 text-lg font-bold text-center bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                 className="w-full p-4 text-2xl font-bold text-center border-2 border-saffron-400 rounded-2xl mb-6 bg-white dark:bg-stone-800 text-stone-900 dark:text-white"
+                 placeholder="0"
                  autoFocus
                />
-               <button 
-                 onClick={handleManualSubmit}
-                 className="bg-saffron-500 text-white px-4 rounded-xl hover:bg-saffron-600"
-               >
-                 <Check size={24} />
-               </button>
-               <button 
-                 onClick={() => setIsManualMode(false)}
-                 className="bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400 px-4 rounded-xl"
-               >
-                 <X size={24} />
-               </button>
+               <div className="flex gap-2">
+                 <button onClick={() => setIsManualMode(false)} className="flex-1 py-3 bg-stone-100 dark:bg-stone-800 text-stone-600 font-bold rounded-xl">Cancel</button>
+                 <button onClick={handleManualSubmit} className="flex-1 py-3 bg-saffron-500 text-white font-bold rounded-xl">Apply</button>
+               </div>
             </div>
-          )}
-          
-          {/* Reset / Finish (Hidden during manual input) */}
-          {!isManualMode && (
-            <>
-                <button 
-                onClick={() => {
-                    if(confirm("Reset current session count?")) setSessionCount(0);
-                }}
-                disabled={sessionCount === 0}
-                className="p-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 rounded-xl hover:text-stone-600 dark:hover:text-stone-300 disabled:opacity-50 transition-colors"
-                title="Reset Session"
-                >
-                <RotateCcw size={20} />
-                </button>
-
-                <button 
-                onClick={handleFinishSession}
-                disabled={sessionCount === 0}
-                className="flex-1 bg-gradient-to-r from-mystic-500 to-mystic-600 text-white py-3 px-4 rounded-xl font-bold shadow-lg shadow-mystic-200 dark:shadow-none hover:opacity-90 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                >
-                <Save size={18} /> Finish
-                </button>
-            </>
-          )}
-        </div>
-      </div>
+         </div>
+      )}
     </div>
   );
 };

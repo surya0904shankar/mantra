@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Mantra, UserStats } from "../types";
 
 // Initialize Gemini Client using process.env.API_KEY as per guidelines
@@ -15,14 +15,35 @@ export const getMantraSuggestions = async (intention: string): Promise<Partial<M
       Suggest 3 distinct, powerful mantras (Sanskrit or English) focusing on the intention: "${intention}".
       Return the result strictly as a JSON array of objects.
       Each object should have keys: "text" (the mantra itself), "meaning" (a short English translation/explanation), and "targetCount" (suggested daily repetition, e.g., 108).
-      Do not include markdown formatting like \`\`\`json. Just the raw JSON string.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' and implemented responseSchema for robust JSON extraction
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              text: {
+                type: Type.STRING,
+                description: 'The mantra text itself.',
+              },
+              meaning: {
+                type: Type.STRING,
+                description: 'A short English translation or explanation.',
+              },
+              targetCount: {
+                type: Type.NUMBER,
+                description: 'Suggested daily repetition count.',
+              },
+            },
+            required: ['text', 'meaning', 'targetCount'],
+          },
+        },
       }
     });
 
@@ -47,8 +68,9 @@ export const getGroupDescriptionSuggestion = async (intention: string, mantra: s
       Tone: Welcoming, sacred, communal.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for basic text tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
@@ -68,8 +90,9 @@ export const getMantraInsight = async (mantraText: string): Promise<string> => {
       Keep it under 100 words. Tone: Calming, educational.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for basic text tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
@@ -99,8 +122,9 @@ export const analyzeChantingHabits = async (stats: UserStats): Promise<string> =
       Provide a personalized, short (max 2 sentences) spiritual recommendation.
     `;
 
+    // Updated model to 'gemini-3-flash-preview' for analysis tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
