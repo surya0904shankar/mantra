@@ -1,4 +1,5 @@
 
+
 export interface Mantra {
   id: string;
   text: string;
@@ -76,7 +77,8 @@ export interface AIResponse {
 
 export interface PracticePreferences {
   sound: 'TEMPLE_BELL' | 'WOODEN_MALA' | 'RAIN_FALL' | 'SILENCE';
-  ambianceSound: 'DEEP_OM' | 'MORNING_BIRDS' | 'FOREST_WIND' | 'OFF';
+  // Fix: Added 'RAIN_FALL' to ambianceSound to fix comparison and assignment errors in MantraCounter.tsx
+  ambianceSound: 'DEEP_OM' | 'MORNING_BIRDS' | 'FOREST_WIND' | 'RAIN_FALL' | 'OFF';
   hapticStrength: 'SOFT' | 'MEDIUM' | 'STRONG' | 'OFF';
   lowLightMode: boolean;
 }

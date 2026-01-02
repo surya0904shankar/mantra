@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, Suspense, lazy, useRef } from 'react';
-import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile } from './types';
+import { View, Group, UserStats, ReminderSettings, Mantra, UserProfile, Member, MantraStats, Announcement } from './types';
 import SacredLogo from './components/SacredLogo';
 
 // Lazy load components
@@ -12,7 +12,7 @@ const AuthScreen = lazy(() => import('./components/AuthScreen'));
 
 import { authService } from './services/auth';
 import { supabase } from './lib/supabaseClient';
-import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Flower2, Users, Settings, X, Star, LogOut, Moon, Sun, Bell, Check, Clock, Loader2, AlertCircle, Mail, ArrowRight } from 'lucide-react';
 
 const PageLoader = () => (
   <div className="flex h-full w-full items-center justify-center min-h-[50vh] animate-in fade-in">
@@ -145,6 +145,104 @@ const App: React.FC = () => {
     initAuth();
   }, []);
 
+  const isSameDay = (d1: Date, d2: Date) => {
+    return d1.getUTCFullYear() === d2.getUTCFullYear() &&
+           d1.getUTCMonth() === d2.getUTCMonth() &&
+           d1.getUTCDate() === d2.getUTCDate();
+  };
+
+  const isYesterday = (d1: Date, d2: Date) => {
+    const yesterday = new Date(d1);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    return isSameDay(yesterday, d2);
+  };
+
+  const deserializeGroup = (g: any): Group => {
+    let finalDescription = g.description;
+    let finalMantra = { id: g.id + '-m', text: g.mantra_text || 'Om', targetCount: 108 };
+    let finalMembers: Member[] = [];
+    let finalTotalCount = 0;
+    let finalIsPremium = false;
+    let finalAnnouncements: Announcement[] = [];
+
+    try {
+      const parsed = JSON.parse(g.description);
+      if (parsed && typeof parsed === 'object') {
+        finalDescription = parsed.d || "";
+        finalMantra = parsed.m || finalMantra;
+        finalMembers = parsed.ms || [];
+        finalTotalCount = parsed.c || 0;
+        finalIsPremium = parsed.p || false;
+        finalAnnouncements = parsed.as || [];
+      }
+    } catch (e) {
+      finalDescription = g.description;
+    }
+
+    if (g.mantra_text && finalMantra.text !== g.mantra_text) {
+      finalMantra.text = g.mantra_text;
+    }
+
+    return {
+      id: g.id,
+      name: g.name,
+      description: finalDescription,
+      mantra: finalMantra,
+      adminId: g.admin_id,
+      members: finalMembers,
+      totalGroupCount: finalTotalCount,
+      announcements: finalAnnouncements, 
+      isPremium: finalIsPremium
+    };
+  };
+
+  const serializeGroupData = (group: Partial<Group>): string => {
+    return JSON.stringify({
+      d: group.description,
+      m: group.mantra,
+      ms: group.members,
+      c: group.totalGroupCount,
+      p: group.isPremium,
+      as: group.announcements
+    });
+  };
+
+  const loadData = async (user: UserProfile) => {
+    const userId = user.id;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (profile) {
+      let breakdown = typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats || [];
+      const lastChanted = profile.last_chanted_date ? new Date(profile.last_chanted_date) : null;
+      const today = new Date();
+      let currentStreak = profile.streak_days || 0;
+
+      if (lastChanted && !isSameDay(today, lastChanted) && !isYesterday(today, lastChanted)) {
+        currentStreak = 0;
+      }
+
+      setUserStats({
+        isPremium: profile.is_premium || false,
+        totalChants: profile.total_global_chants || 0, 
+        mantraBreakdown: breakdown,
+        streakDays: currentStreak,
+        lastChantedDate: profile.last_chanted_date || null
+      });
+    }
+
+    const { data: allGroups } = await supabase.from('groups').select('*');
+    if (allGroups) {
+      const mappedGroups = allGroups.map(deserializeGroup).filter(g => 
+        g.adminId === userId || g.members.some(m => m.id === userId)
+      );
+      setGroups(mappedGroups);
+    }
+  };
+
   useEffect(() => {
     if (currentUser) {
       const savedReminder = localStorage.getItem(`om_reminder_${currentUser.id}`);
@@ -153,51 +251,190 @@ const App: React.FC = () => {
         setReminder(parsed);
         setTempReminderTime(parsed.time);
       }
-      const loadData = async () => {
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-        if (profile) {
-          let breakdown = typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats || [];
-          setUserStats(prev => ({
-            ...prev,
-            isPremium: profile.is_premium,
-            totalChants: profile.total_global_chants || 0, 
-            mantraBreakdown: breakdown,
-            streakDays: profile.streak_days || 0,
-            lastChantedDate: profile.last_chanted_date || null
-          }));
-        }
-      };
-      loadData();
+      loadData(currentUser);
     }
   }, [currentUser]);
 
   const handleUpdateCount = async (increment: number, groupId: string | null, mantraText: string) => {
     if (!currentUser) return;
-    const newTotal = userStats.totalChants + increment;
-    setUserStats(prev => ({ ...prev, totalChants: newTotal }));
-    await supabase.from('profiles').update({ total_global_chants: newTotal }).eq('id', currentUser.id);
+    
+    const today = new Date();
+    const isoNow = today.toISOString();
+
+    let nextStats: UserStats | null = null;
+
+    setUserStats(prev => {
+      let nextStreak = prev.streakDays;
+      const lastDate = prev.lastChantedDate ? new Date(prev.lastChantedDate) : null;
+
+      if (!lastDate) nextStreak = 1;
+      else if (isYesterday(today, lastDate)) nextStreak += 1;
+      else if (!isSameDay(today, lastDate)) nextStreak = 1;
+
+      const nextTotal = prev.totalChants + increment;
+      const nextBreakdown = [...prev.mantraBreakdown];
+      const idx = nextBreakdown.findIndex(m => m.mantraText === mantraText);
+      if (idx > -1) nextBreakdown[idx].totalCount += increment;
+      else nextBreakdown.push({ mantraText, totalCount: increment });
+
+      nextStats = { 
+        ...prev, 
+        totalChants: nextTotal, 
+        mantraBreakdown: nextBreakdown,
+        streakDays: nextStreak,
+        lastChantedDate: isoNow
+      };
+      
+      return nextStats;
+    });
+
+    if (nextStats) {
+      try {
+        await supabase.from('profiles').upsert({ 
+          id: currentUser.id,
+          total_global_chants: (nextStats as UserStats).totalChants,
+          mantra_stats: (nextStats as UserStats).mantraBreakdown,
+          last_chanted_date: (nextStats as UserStats).lastChantedDate,
+          streak_days: (nextStats as UserStats).streakDays
+        }, { onConflict: 'id' });
+      } catch (err) {
+        console.error("Sync Profile Error:", err);
+      }
+    }
+
+    if (groupId) {
+      try {
+        const { data: latestGroupRaw } = await supabase.from('groups').select('*').eq('id', groupId).single();
+        if (latestGroupRaw) {
+          const group = deserializeGroup(latestGroupRaw);
+          let userInMembers = false;
+          
+          const updatedMembers = group.members.map(m => {
+            if (m.id === currentUser.id) {
+              userInMembers = true;
+              const history = m.history || [];
+              return {
+                ...m,
+                count: (m.count || 0) + increment,
+                lastActive: isoNow,
+                history: [...history, { date: isoNow, count: increment }].slice(-20)
+              };
+            }
+            return m;
+          });
+
+          if (!userInMembers) {
+            updatedMembers.push({
+              id: currentUser.id,
+              name: currentUser.name,
+              count: increment,
+              lastActive: isoNow,
+              history: [{ date: isoNow, count: increment }]
+            });
+          }
+
+          const newGroupTotal = group.totalGroupCount + increment;
+          const serialized = serializeGroupData({ ...group, members: updatedMembers, totalGroupCount: newGroupTotal });
+          const updatedGroupObj = { ...group, members: updatedMembers, totalGroupCount: newGroupTotal };
+          
+          setGroups(prev => prev.map(g => g.id === groupId ? updatedGroupObj : g));
+          if (activeGroup?.id === groupId) {
+            setActiveGroup(updatedGroupObj);
+          }
+
+          await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
+        }
+      } catch (err) {
+        console.error("Sync Group Error:", err);
+      }
+    }
+  };
+
+  const handleCreateGroup = async (newGroup: Group) => {
+    if (!currentUser) return;
+    try {
+      const serialized = serializeGroupData(newGroup);
+      const { error } = await supabase.from('groups').insert({
+        id: newGroup.id,
+        name: newGroup.name,
+        description: serialized,
+        admin_id: currentUser.id,
+        mantra_text: newGroup.mantra.text
+      });
+
+      if (error) throw error;
+      setGroups(prev => [...prev, newGroup]);
+    } catch (e: any) {
+      console.error("Error creating group:", e);
+      alert("Failed to create sangha circle.");
+    }
+  };
+
+  const handleJoinGroup = async (groupId: string) => {
+    if (!currentUser) return;
+    try {
+      const { data: raw, error } = await supabase.from('groups').select('*').eq('id', groupId).single();
+      if (error || !raw) throw new Error("Sangha not found.");
+      
+      const group = deserializeGroup(raw);
+      if (group.members.some(m => m.id === currentUser.id)) {
+        alert("Already a member.");
+        return;
+      }
+
+      const newMember = { id: currentUser.id, name: currentUser.name, count: 0, lastActive: new Date().toISOString(), history: [] };
+      const updatedMembers = [...group.members, newMember];
+      const serialized = serializeGroupData({ ...group, members: updatedMembers });
+
+      await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
+      setGroups(prev => [...prev, { ...group, members: updatedMembers }]);
+      alert(`Joined ${group.name}!`);
+    } catch (e: any) {
+      console.error("Error joining group:", e);
+      alert("Failed to join sangha.");
+    }
+  };
+
+  const handleAddAnnouncement = async (groupId: string, text: string) => {
+    if (!currentUser) return;
+    try {
+      const { data: raw, error } = await supabase.from('groups').select('*').eq('id', groupId).single();
+      if (error || !raw) throw new Error("Sangha not found.");
+      
+      const group = deserializeGroup(raw);
+      const newAnnouncement: Announcement = { 
+        id: crypto.randomUUID(), 
+        text, 
+        date: new Date().toISOString(), 
+        authorName: currentUser.name 
+      };
+      
+      const updatedAnnouncements = [newAnnouncement, ...(group.announcements || [])].slice(0, 50);
+      const updatedGroup = { ...group, announcements: updatedAnnouncements };
+      const serialized = serializeGroupData(updatedGroup);
+
+      await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
+      
+      setGroups(prev => prev.map(g => g.id === groupId ? updatedGroup : g));
+      if (activeGroup?.id === groupId) setActiveGroup(updatedGroup);
+    } catch (e: any) {
+      console.error("Announcement error:", e);
+    }
   };
 
   const handlePremiumUpgrade = async () => {
     if (!currentUser) return;
     try {
-      const { error } = await supabase.from('profiles').update({ is_premium: true }).eq('id', currentUser.id);
-      if (error) throw error;
+      await supabase.from('profiles').update({ is_premium: true }).eq('id', currentUser.id);
       setUserStats(prev => ({ ...prev, isPremium: true }));
-    } catch (e) {
-      console.error("Failed to persist premium status", e);
-      setUserStats(prev => ({ ...prev, isPremium: true }));
-    }
+    } catch (e) { console.error("Upgrade failed:", e); }
   };
 
   const handleSetReminder = async () => {
-    const permission = await Notification.requestPermission();
+    await Notification.requestPermission();
     const settings = { enabled: true, time: tempReminderTime };
     setReminder(settings);
     localStorage.setItem(`om_reminder_${currentUser?.id}`, JSON.stringify(settings));
-    if (permission !== 'granted') {
-      alert("Note: Browser notifications are blocked, but OmCounter will still alert you with sound and vibration while the app is open.");
-    }
   };
 
   const handleDisableReminder = () => {
@@ -206,13 +443,16 @@ const App: React.FC = () => {
     localStorage.setItem(`om_reminder_${currentUser?.id}`, JSON.stringify(settings));
   };
 
-  const renderContent = () => (
-    <Suspense fallback={<PageLoader />}>
-      {currentView === View.DASHBOARD && <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser!} onUpgradeClick={() => setShowSubscriptionModal(true)} />}
-      {currentView === View.GROUPS && <GroupAdmin groups={groups} onCreateGroup={() => {}} onJoinGroup={() => {}} onSelectGroup={(g) => { setActiveGroup(g); setCurrentView(View.COUNTER); }} isPremium={userStats.isPremium} onTriggerUpgrade={() => setShowSubscriptionModal(true)} currentUserId={currentUser!.id} currentUserName={currentUser!.name} onAddAnnouncement={() => {}} />}
-      {currentView === View.COUNTER && <MantraCounter activeGroup={activeGroup} personalMantras={personalMantras} onUpdateCount={handleUpdateCount} onAddPersonalMantra={(t, tar) => setPersonalMantras([...personalMantras, {id: Date.now().toString(), text: t, targetCount: tar}])} isPremium={userStats.isPremium} onUpgradeClick={() => setShowSubscriptionModal(true)} />}
-    </Suspense>
-  );
+  const renderContent = () => {
+    if (!currentUser) return <PageLoader />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {currentView === View.DASHBOARD && <StatsDashboard userStats={userStats} groups={groups} currentUser={currentUser} onUpgradeClick={() => setShowSubscriptionModal(true)} />}
+        {currentView === View.GROUPS && <GroupAdmin groups={groups} onCreateGroup={handleCreateGroup} onJoinGroup={handleJoinGroup} onSelectGroup={(g) => { setActiveGroup(g); setCurrentView(View.COUNTER); }} isPremium={userStats.isPremium} onTriggerUpgrade={() => setShowSubscriptionModal(true)} currentUserId={currentUser.id} currentUserName={currentUser.name} onAddAnnouncement={handleAddAnnouncement} />}
+        {currentView === View.COUNTER && <MantraCounter activeGroup={activeGroup} personalMantras={personalMantras} onUpdateCount={handleUpdateCount} onAddPersonalMantra={(t, tar) => setPersonalMantras([...personalMantras, {id: Date.now().toString(), text: t, targetCount: tar}])} isPremium={userStats.isPremium} onUpgradeClick={() => setShowSubscriptionModal(true)} />}
+      </Suspense>
+    );
+  };
 
   if (isAuthChecking) return <div className="h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950"><SacredLogo size="xl" /></div>;
   if (!currentUser) return <AuthScreen onAuthSuccess={setCurrentUser} />;
@@ -308,6 +548,19 @@ const App: React.FC = () => {
                        </button>
                    </div>
 
+                   <div className="flex items-center justify-between px-4 py-3 bg-stone-800/30 rounded-2xl border border-stone-700/20">
+                       <div className="flex items-center gap-3">
+                         <Mail size={18} className="text-stone-400" />
+                         <div>
+                            <p className="font-bold text-stone-300 text-[13px]">Contact Support</p>
+                            <p className="text-[10px] text-stone-500">omchanterdev@gmail.com</p>
+                         </div>
+                       </div>
+                       <a href="mailto:omchanterdev@gmail.com" className="p-2 bg-white/5 rounded-lg text-stone-400 hover:text-white transition-all">
+                          <ArrowRight size={16} />
+                       </a>
+                   </div>
+
                    <button onClick={async () => { await authService.logout(); window.location.reload(); }} className="w-full text-left flex items-center justify-center gap-3 text-red-400/80 p-5 rounded-2xl hover:bg-red-900/10 hover:text-red-400 font-black text-sm uppercase tracking-widest transition-all mt-6 border border-red-900/20">
                       <LogOut size={18} /> 
                       <span>Logout</span>
@@ -324,34 +577,10 @@ const App: React.FC = () => {
             <SacredLogo size="lg" />
             <span className="font-display font-black text-2xl text-stone-900 dark:text-stone-100 hidden lg:block tracking-tight">OmCounter</span>
           </div>
-          <NavButton 
-            active={currentView === View.DASHBOARD} 
-            onClick={() => setCurrentView(View.DASHBOARD)} 
-            icon={<LayoutDashboard size={26} />} 
-            label="Stats" 
-            description="Journey Insights"
-          />
-          <NavButton 
-            active={currentView === View.GROUPS} 
-            onClick={() => setCurrentView(View.GROUPS)} 
-            icon={<Users size={26} />} 
-            label="Sanghas" 
-            description="Practice Circles"
-          />
-          <NavButton 
-            active={currentView === View.COUNTER} 
-            onClick={() => { setActiveGroup(null); setCurrentView(View.COUNTER); }} 
-            icon={<Flower2 size={26} />} 
-            label="Practice" 
-            description="Sacred Session"
-          />
-          <NavButton 
-            active={showSettings} 
-            onClick={() => setShowSettings(true)} 
-            icon={<Settings size={26} />} 
-            label="Settings" 
-            description="Sanctuary Config"
-          />
+          <NavButton active={currentView === View.DASHBOARD} onClick={() => setCurrentView(View.DASHBOARD)} icon={<LayoutDashboard size={26} />} label="Stats" description="Journey Insights" />
+          <NavButton active={currentView === View.GROUPS} onClick={() => setCurrentView(View.GROUPS)} icon={<Users size={26} />} label="Sanghas" description="Practice Circles" />
+          <NavButton active={currentView === View.COUNTER} onClick={() => { setActiveGroup(null); setCurrentView(View.COUNTER); }} icon={<Flower2 size={26} />} label="Practice" description="Sacred Session" />
+          <NavButton active={showSettings} onClick={() => setShowSettings(true)} icon={<Settings size={26} />} label="Settings" description="Sanctuary Config" />
         </div>
       </nav>
 
