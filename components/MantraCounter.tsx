@@ -393,8 +393,8 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
                     pattern="[0-9]*"
                     value={manualInput} 
                     onChange={(e) => setManualInput(e.target.value.replace(/\D/g, ''))} 
-                    className="w-full px-8 py-5 bg-white text-3xl font-black outline-none placeholder:text-stone-400 placeholder:font-normal text-black !text-black placeholder:text-lg"
-                    placeholder="enter bulk count"
+                    className="w-full px-8 py-5 bg-white text-3xl font-black outline-none placeholder:text-black placeholder:font-bold text-black !text-black placeholder:text-lg"
+                    placeholder="Enter Bulk Count"
                     style={{ color: 'black' }}
                 />
               </div>
@@ -407,14 +407,15 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
               </button>
             </div>
             
-            <button onClick={handleTap} className="w-full bg-stone-950 dark:bg-stone-100 text-white dark:text-stone-950 py-7 rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-4">
-                <Plus size={32} strokeWidth={4} /> TAP TO CHANT
+            <button onClick={handleTap} className="w-full bg-stone-950 dark:bg-stone-100 text-white dark:text-stone-950 py-4 rounded-[2rem] font-bold shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                <Plus size={18} strokeWidth={3} />
+                <span className="uppercase tracking-[0.2em] text-[11px]">TAP TO CHANT</span>
             </button>
           </div>
         )}
 
-        <button onClick={handleFinishSession} disabled={sessionCount === 0} className={`w-full ${isZenMode ? 'bg-white/5 text-stone-300 border border-white/10' : 'bg-mystic-600 text-white'} py-5 rounded-[2rem] font-black shadow-xl disabled:opacity-30 transition-all flex items-center justify-center gap-3 group active:scale-95`}>
-            <Save size={20} /> 
+        <button onClick={handleFinishSession} disabled={sessionCount === 0} className={`w-full ${isZenMode ? 'bg-white/5 text-stone-300 border border-white/10' : 'bg-mystic-600 text-white'} py-4 rounded-[2rem] font-bold shadow-xl disabled:opacity-30 transition-all flex items-center justify-center gap-3 group active:scale-95`}>
+            <Save size={18} /> 
             <span className="uppercase tracking-[0.2em] text-[11px]">End Session</span>
         </button>
       </div>
