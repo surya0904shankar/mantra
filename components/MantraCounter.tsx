@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Check, ChevronDown, Save, Maximize2, Minimize2, Settings2, Play, Pause, Sparkles, Wind, Moon, ChevronRight, Volume2, CloudRain, Bird, Trees, Lock } from 'lucide-react';
+import { Plus, Check, ChevronDown, Save, Maximize2, Minimize2, Settings2, Play, Pause, Sparkles, Wind, Moon, ChevronRight, Volume2, CloudRain, Bird, Waves, Lock, BellRing } from 'lucide-react';
 import { Group, Mantra, PracticePreferences } from '../types';
 
 interface MantraCounterProps {
@@ -96,7 +96,8 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
     const now = ctx.currentTime;
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.12, now + 2);
+    // Setting volume high (0.7) as requested for "more louder" ambiance
+    gainNode.gain.linearRampToValueAtTime(0.7, now + 2);
     gainNode.connect(ctx.destination);
     const activeSources: (AudioBufferSourceNode | OscillatorNode)[] = [];
 
@@ -110,7 +111,49 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
         osc.start();
         activeSources.push(osc);
       });
+    } else if (prefs.ambianceSound === 'BELL_CLINGING') {
+       // Synthesizing a clear, crystalline single bell "clinging" sound loop
+       const bellFreqs = [1200, 2400, 3600];
+       bellFreqs.forEach((f, idx) => {
+         const osc = ctx.createOscillator();
+         const loopGain = ctx.createGain();
+         osc.type = 'sine';
+         osc.frequency.setValueAtTime(f, now);
+         
+         // Create a rhythmic clinging effect
+         loopGain.gain.setValueAtTime(0, now);
+         const rhythm = 3.0; // every 3 seconds
+         for(let i=0; i<60; i++) {
+           loopGain.gain.setValueAtTime(0.1 / (idx+1), now + (i * rhythm));
+           loopGain.gain.exponentialRampToValueAtTime(0.0001, now + (i * rhythm) + 2.5);
+         }
+         
+         osc.connect(loopGain);
+         loopGain.connect(gainNode);
+         osc.start();
+         activeSources.push(osc);
+       });
+    } else if (prefs.ambianceSound === 'WATERFALL') {
+      const bufferSize = ctx.sampleRate * 5;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let lastOut = 0;
+      
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        // Low-pass filtered noise to simulate heavy waterfall rush
+        lastOut = (lastOut + (0.1 * white)) / 1.02;
+        data[i] = lastOut;
+      }
+      
+      const bufSource = ctx.createBufferSource();
+      bufSource.buffer = buffer;
+      bufSource.loop = true;
+      bufSource.connect(gainNode);
+      bufSource.start();
+      activeSources.push(bufSource);
     } else {
+      // Birds or Rain
       const bufferSize = ctx.sampleRate * 3;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
@@ -203,7 +246,7 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
               <span className="text-xs font-bold uppercase tracking-[0.3em] font-serif">Zen Focus</span>
             </div>
             <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10">
-               {(['DEEP_OM', 'MORNING_BIRDS', 'FOREST_WIND', 'RAIN_FALL'] as const).map(sound => (
+               {(['DEEP_OM', 'MORNING_BIRDS', 'WATERFALL', 'RAIN_FALL', 'BELL_CLINGING'] as const).map(sound => (
                  <button 
                   key={sound}
                   onClick={() => setPrefs({...prefs, ambianceSound: sound})}
@@ -211,8 +254,9 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
                  >
                    {sound === 'DEEP_OM' && <Volume2 size={14} />}
                    {sound === 'MORNING_BIRDS' && <Bird size={14} />}
-                   {sound === 'FOREST_WIND' && <Trees size={14} />}
+                   {sound === 'WATERFALL' && <Waves size={14} />}
                    {sound === 'RAIN_FALL' && <CloudRain size={14} />}
+                   {sound === 'BELL_CLINGING' && <BellRing size={14} />}
                  </button>
                ))}
             </div>
@@ -221,8 +265,9 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
              <button onClick={toggleAmbiance} className={`p-3 rounded-full transition-all ${isAmbiancePlaying ? 'bg-saffron-500 text-white shadow-lg' : 'bg-white/10 text-stone-400'}`}>
                 {isAmbiancePlaying ? <Pause size={20} /> : <Play size={20} />}
              </button>
-             <button onClick={() => setIsZenMode(false)} className="p-3 bg-white/5 rounded-full text-stone-400 hover:text-white transition-colors">
-                <Minimize2 size={24} />
+             <button onClick={() => setIsZenMode(false)} className="flex items-center gap-3 px-5 py-3 bg-white/5 hover:bg-white/10 rounded-full text-stone-400 hover:text-white transition-all border border-white/10 shadow-lg">
+                <span className="text-[10px] font-black tracking-widest uppercase">Exit Zen</span>
+                <Minimize2 size={20} />
              </button>
           </div>
         </div>
@@ -341,21 +386,22 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
         {!isZenMode && (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
-              <div className="flex-1 border-[2.5px] border-black rounded-[2rem] overflow-hidden bg-white shadow-md focus-within:ring-2 focus-within:ring-saffron-400 transition-all">
+              <div className="flex-1 border-[4px] border-black rounded-[2rem] overflow-hidden bg-white shadow-2xl focus-within:ring-4 focus-within:ring-saffron-400 transition-all flex items-center">
                 <input 
                     type="text" 
                     inputMode="numeric"
                     pattern="[0-9]*"
                     value={manualInput} 
                     onChange={(e) => setManualInput(e.target.value.replace(/\D/g, ''))} 
-                    className="w-full px-6 py-4 bg-transparent text-xl font-black outline-none placeholder:text-stone-300 placeholder:font-normal text-black"
+                    className="w-full px-8 py-5 bg-white text-3xl font-black outline-none placeholder:text-stone-400 placeholder:font-normal text-black !text-black placeholder:text-lg"
                     placeholder="enter bulk count"
+                    style={{ color: 'black' }}
                 />
               </div>
               <button 
                   onClick={handleManualSubmit}
                   disabled={!manualInput}
-                  className="bg-saffron-500 text-white h-[64px] px-8 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-saffron-600 transition-all active:scale-95 disabled:opacity-30 shadow-xl shadow-saffron-500/20"
+                  className="bg-saffron-500 text-white h-[76px] px-8 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-saffron-600 transition-all active:scale-95 disabled:opacity-30 shadow-xl shadow-saffron-500/20"
               >
                   Add
               </button>
