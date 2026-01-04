@@ -235,7 +235,6 @@ const App: React.FC = () => {
         });
       }
 
-      // Local storage fallback for group IDs to ensure we find the groups we joined
       const locallyJoinedIds = JSON.parse(localStorage.getItem(`om_joined_groups_${userId}`) || '[]');
 
       const { data: allGroups } = await supabase.from('groups').select('*');
@@ -270,7 +269,7 @@ const App: React.FC = () => {
     const today = new Date();
     const isoNow = today.toISOString();
 
-    // 1. PERSONAL PRACTICE: Strictly update UserStats and profiles table
+    // 1. PERSONAL PRACTICE: Strictly update UserStats and profiles table (Individual counts)
     if (!groupId) {
       let nextStats: UserStats | null = null;
       setUserStats(prev => {
@@ -367,7 +366,6 @@ const App: React.FC = () => {
   const handleCreateGroup = async (newGroup: Group) => {
     if (!currentUser) return;
     
-    // Safety check for group count limits
     const myCreatedGroups = groups.filter(g => g.adminId === currentUser.id);
     if (myCreatedGroups.length >= 2 && !userStats.isPremium) {
        alert("Limit Reached: Basic members can create max 2 Sanghas. Upgrade to Premium for unlimited circles.");
@@ -400,9 +398,10 @@ const App: React.FC = () => {
       
       const group = deserializeGroup(raw);
 
-      // Check member limit for non-premium groups
+      // CRITICAL FIX: If group is premium (creator is premium), no limits for anyone.
+      // If group is basic, check 25 member cap.
       if (!group.isPremium && group.members.length >= 25) {
-         alert("This Sangha has reached its 25-member capacity for Basic tier. The creator must upgrade to accommodate more members.");
+         alert("This Sangha has reached its 25-member capacity for Basic tier. The creator must upgrade to Premium to allow unlimited disciples.");
          return;
       }
 
@@ -472,6 +471,14 @@ const App: React.FC = () => {
     try {
       await supabase.from('profiles').update({ is_premium: true }).eq('id', currentUser.id);
       setUserStats(prev => ({ ...prev, isPremium: true }));
+      
+      // Update existing groups where user is admin to reflect premium status
+      const myGroups = groups.filter(g => g.adminId === currentUser.id);
+      for (const g of myGroups) {
+          const updated = { ...g, isPremium: true };
+          await supabase.from('groups').update({ description: serializeGroupData(updated) }).eq('id', g.id);
+      }
+      loadData(currentUser); 
     } catch (e) { console.error("Upgrade failed:", e); }
   };
 

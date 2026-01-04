@@ -58,7 +58,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
         meaning: description
       },
       members: [{ id: currentUserId, name: currentUserName, count: 0, lastActive: new Date().toISOString() }],
-      isPremium: isPremium
+      isPremium: isPremium // Group is premium if the creator is premium
     });
     setNewGroupName('');
     setDescription('');
@@ -126,7 +126,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                       </p>
                     </div>
                     <div className="mb-4 flex items-center gap-2 text-[10px] text-stone-400 font-bold uppercase tracking-wider">
-                       <Users size={12} /> {group.members.length} / {group.isPremium ? 'Unlimited' : '25 Members'}
+                       <Users size={12} /> {group.members.length} / {group.isPremium ? 'Unlimited Capacity' : '25 Members Max'}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -157,7 +157,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
             <p className="text-stone-500 font-serif">Form a sacred practice community.</p>
             {!isPremium && (
                <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 rounded-full font-bold">
-                 <Info size={14} /> Basic Limit: 2 Sanghas, 25 members each.
+                 <Info size={14} /> Basic Limit: 2 Sanghas, 25 members each. Premium creators have no limits.
                </div>
             )}
           </header>
