@@ -58,7 +58,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
         meaning: description
       },
       members: [{ id: currentUserId, name: currentUserName, count: 0, lastActive: new Date().toISOString() }],
-      isPremium: isPremium // Group is premium if the creator is premium
+      isPremium: isPremium // Group inherits premium status from its creator
     });
     setNewGroupName('');
     setDescription('');
@@ -100,6 +100,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
               const isAdmin = group.adminId === currentUserId;
               const cardBg = isAdmin ? 'bg-orange-50/50 dark:bg-orange-900/20 border-orange-200' : 'bg-indigo-50/40 dark:bg-indigo-900/20 border-indigo-200';
               const badge = isAdmin ? 'bg-orange-100 text-orange-800' : 'bg-indigo-100 text-indigo-800';
+              const memberCount = group.members?.length || 0;
 
               return (
                 <div key={group.id} className={`p-5 rounded-2xl border shadow-sm relative flex flex-col justify-between h-full group ${cardBg}`}>
@@ -126,7 +127,11 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                       </p>
                     </div>
                     <div className="mb-4 flex items-center gap-2 text-[10px] text-stone-400 font-bold uppercase tracking-wider">
-                       <Users size={12} /> {group.members.length} / {group.isPremium ? 'Unlimited Capacity' : '25 Members Max'}
+                       <Users size={12} /> 
+                       {isAdmin 
+                        ? `${memberCount} / ${group.isPremium ? 'Unlimited Capacity' : '25 Members Max'}`
+                        : `${memberCount} ${memberCount === 1 ? 'Member' : 'Members'}`
+                       }
                     </div>
                   </div>
                   <div className="flex gap-2">
