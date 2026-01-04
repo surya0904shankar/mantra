@@ -170,10 +170,10 @@ const App: React.FC = () => {
       if (parsed && typeof parsed === 'object') {
         finalDescription = parsed.d || "";
         finalMantra = parsed.m || finalMantra;
-        finalMembers = parsed.ms || [];
-        finalTotalCount = parsed.c || 0;
+        finalMembers = Array.isArray(parsed.ms) ? parsed.ms : [];
+        finalTotalCount = typeof parsed.c === 'number' ? parsed.c : 0;
         finalIsPremium = parsed.p || false;
-        finalAnnouncements = parsed.as || [];
+        finalAnnouncements = Array.isArray(parsed.as) ? parsed.as : [];
       }
     } catch (e) {
       finalDescription = g.description;
@@ -209,37 +209,46 @@ const App: React.FC = () => {
 
   const loadData = async (user: UserProfile) => {
     const userId = user.id;
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (profile) {
-      let breakdown = typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats || [];
-      const lastChanted = profile.last_chanted_date ? new Date(profile.last_chanted_date) : null;
-      const today = new Date();
-      let currentStreak = profile.streak_days || 0;
+      if (profile) {
+        let breakdown = typeof profile.mantra_stats === 'string' ? JSON.parse(profile.mantra_stats) : profile.mantra_stats || [];
+        const lastChanted = profile.last_chanted_date ? new Date(profile.last_chanted_date) : null;
+        const today = new Date();
+        let currentStreak = profile.streak_days || 0;
 
-      if (lastChanted && !isSameDay(today, lastChanted) && !isYesterday(today, lastChanted)) {
-        currentStreak = 0;
+        if (lastChanted && !isSameDay(today, lastChanted) && !isYesterday(today, lastChanted)) {
+          currentStreak = 0;
+        }
+
+        setUserStats({
+          isPremium: profile.is_premium || false,
+          totalChants: profile.total_global_chants || 0, 
+          mantraBreakdown: breakdown,
+          streakDays: currentStreak,
+          lastChantedDate: profile.last_chanted_date || null
+        });
       }
 
-      setUserStats({
-        isPremium: profile.is_premium || false,
-        totalChants: profile.total_global_chants || 0, 
-        mantraBreakdown: breakdown,
-        streakDays: currentStreak,
-        lastChantedDate: profile.last_chanted_date || null
-      });
-    }
+      // Local storage fallback for group IDs to ensure we find the groups we joined
+      const locallyJoinedIds = JSON.parse(localStorage.getItem(`om_joined_groups_${userId}`) || '[]');
 
-    const { data: allGroups } = await supabase.from('groups').select('*');
-    if (allGroups) {
-      const mappedGroups = allGroups.map(deserializeGroup).filter(g => 
-        g.adminId === userId || g.members.some(m => m.id === userId)
-      );
-      setGroups(mappedGroups);
+      const { data: allGroups } = await supabase.from('groups').select('*');
+      if (allGroups) {
+        const mappedGroups = allGroups.map(deserializeGroup).filter(g => 
+          g.adminId === userId || 
+          g.members.some(m => m.id === userId) ||
+          locallyJoinedIds.includes(g.id)
+        );
+        setGroups(mappedGroups);
+      }
+    } catch (err) {
+      console.error("Data load error:", err);
     }
   };
 
@@ -263,6 +272,7 @@ const App: React.FC = () => {
 
     let nextStats: UserStats | null = null;
 
+    // Update Local and Personal State
     setUserStats(prev => {
       let nextStreak = prev.streakDays;
       const lastDate = prev.lastChantedDate ? new Date(prev.lastChantedDate) : null;
@@ -298,13 +308,13 @@ const App: React.FC = () => {
           streak_days: (nextStats as UserStats).streakDays
         }, { onConflict: 'id' });
       } catch (err) {
-        console.error("Sync Profile Error:", err);
+        console.error("Profile sync warning:", err);
       }
     }
 
+    // Sync to Sangha Circle
     if (groupId) {
       try {
-        // Fetch the very latest group data to avoid state mismatch
         const { data: latestGroupRaw } = await supabase.from('groups').select('*').eq('id', groupId).single();
         if (latestGroupRaw) {
           const group = deserializeGroup(latestGroupRaw);
@@ -313,18 +323,17 @@ const App: React.FC = () => {
           const updatedMembers = group.members.map(m => {
             if (m.id === currentUser.id) {
               userInMembers = true;
-              const history = m.history || [];
+              const history = Array.isArray(m.history) ? m.history : [];
               return {
                 ...m,
                 count: (m.count || 0) + increment,
                 lastActive: isoNow,
-                history: [...history, { date: isoNow, count: increment }].slice(-20)
+                history: [...history, { date: isoNow, count: increment }].slice(-50)
               };
             }
             return m;
           });
 
-          // Add user if missing (failsafe)
           if (!userInMembers) {
             updatedMembers.push({
               id: currentUser.id,
@@ -339,17 +348,19 @@ const App: React.FC = () => {
           const updatedGroupObj = { ...group, members: updatedMembers, totalGroupCount: newGroupTotal };
           const serialized = serializeGroupData(updatedGroupObj);
           
-          // Update local state immediately for responsiveness
           setGroups(prev => prev.map(g => g.id === groupId ? updatedGroupObj : g));
           if (activeGroup?.id === groupId) {
             setActiveGroup(updatedGroupObj);
           }
 
-          // Persistence
-          await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
+          const { error: groupSyncErr } = await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
+          if (groupSyncErr) {
+            console.error("Supabase RLS UPDATE Blocked:", groupSyncErr.message);
+            // This usually happens if the UPDATE policy for 'groups' table isn't set.
+          }
         }
       } catch (err) {
-        console.error("Sync Group Error:", err);
+        console.error("Group sync error:", err);
       }
     }
   };
@@ -370,21 +381,19 @@ const App: React.FC = () => {
       setGroups(prev => [...prev, newGroup]);
     } catch (e: any) {
       console.error("Error creating group:", e);
-      alert("Failed to create sangha circle.");
+      alert("Failed to create sangha circle. Verify INSERT policy on 'groups'.");
     }
   };
 
   const handleJoinGroup = async (groupId: string) => {
     if (!currentUser) return;
     try {
-      // Fetch current group record
       const { data: raw, error } = await supabase.from('groups').select('*').eq('id', groupId).single();
-      if (error || !raw) throw new Error("Sangha not found.");
+      if (error || !raw) throw new Error("Sangha not found or SELECT permission missing.");
       
       const group = deserializeGroup(raw);
       if (group.members.some(m => m.id === currentUser.id)) {
-        alert("Already a member of this circle.");
-        setGroups(prev => prev.some(g => g.id === groupId) ? prev : [...prev, group]);
+        alert("You are already in this circle.");
         return;
       }
 
@@ -400,22 +409,32 @@ const App: React.FC = () => {
       const updatedGroup = { ...group, members: updatedMembers };
       const serialized = serializeGroupData(updatedGroup);
 
+      // Save to local storage as fallback immediately
+      const joinedIds = JSON.parse(localStorage.getItem(`om_joined_groups_${currentUser.id}`) || '[]');
+      if (!joinedIds.includes(groupId)) {
+        joinedIds.push(groupId);
+        localStorage.setItem(`om_joined_groups_${currentUser.id}`, JSON.stringify(joinedIds));
+      }
+
       const { error: updateError } = await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Join blocked by RLS policy:", updateError.message);
+        throw new Error("Supabase RLS Policy: 'UPDATE' on 'groups' table is missing or restricted.");
+      }
 
       setGroups(prev => [...prev, updatedGroup]);
-      alert(`Successfully joined ${group.name}!`);
+      alert(`Joined ${group.name} successfully!`);
     } catch (e: any) {
       console.error("Error joining group:", e);
-      alert("Failed to join sangha. Please check the ID and your connection.");
+      alert(e.message || "Failed to join sangha.");
     }
   };
 
   const handleAddAnnouncement = async (groupId: string, text: string) => {
     if (!currentUser) return;
     try {
-      const { data: raw, error } = await supabase.from('groups').select('*').eq('id', groupId).single();
-      if (error || !raw) throw new Error("Sangha not found.");
+      const { data: raw } = await supabase.from('groups').select('*').eq('id', groupId).single();
+      if (!raw) return;
       
       const group = deserializeGroup(raw);
       const newAnnouncement: Announcement = { 
