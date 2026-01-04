@@ -179,7 +179,7 @@ const App: React.FC = () => {
       finalDescription = g.description;
     }
 
-    if (g.mantra_text && finalMantra.text !== g.mantra_text) {
+    if (g.mantra_text && (!finalMantra.text || finalMantra.text === 'Om')) {
       finalMantra.text = g.mantra_text;
     }
 
@@ -304,6 +304,7 @@ const App: React.FC = () => {
 
     if (groupId) {
       try {
+        // Fetch the very latest group data to avoid state mismatch
         const { data: latestGroupRaw } = await supabase.from('groups').select('*').eq('id', groupId).single();
         if (latestGroupRaw) {
           const group = deserializeGroup(latestGroupRaw);
@@ -323,6 +324,7 @@ const App: React.FC = () => {
             return m;
           });
 
+          // Add user if missing (failsafe)
           if (!userInMembers) {
             updatedMembers.push({
               id: currentUser.id,
@@ -333,15 +335,17 @@ const App: React.FC = () => {
             });
           }
 
-          const newGroupTotal = group.totalGroupCount + increment;
-          const serialized = serializeGroupData({ ...group, members: updatedMembers, totalGroupCount: newGroupTotal });
+          const newGroupTotal = (group.totalGroupCount || 0) + increment;
           const updatedGroupObj = { ...group, members: updatedMembers, totalGroupCount: newGroupTotal };
+          const serialized = serializeGroupData(updatedGroupObj);
           
+          // Update local state immediately for responsiveness
           setGroups(prev => prev.map(g => g.id === groupId ? updatedGroupObj : g));
           if (activeGroup?.id === groupId) {
             setActiveGroup(updatedGroupObj);
           }
 
+          // Persistence
           await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
         }
       } catch (err) {
@@ -373,25 +377,37 @@ const App: React.FC = () => {
   const handleJoinGroup = async (groupId: string) => {
     if (!currentUser) return;
     try {
+      // Fetch current group record
       const { data: raw, error } = await supabase.from('groups').select('*').eq('id', groupId).single();
       if (error || !raw) throw new Error("Sangha not found.");
       
       const group = deserializeGroup(raw);
       if (group.members.some(m => m.id === currentUser.id)) {
-        alert("Already a member.");
+        alert("Already a member of this circle.");
+        setGroups(prev => prev.some(g => g.id === groupId) ? prev : [...prev, group]);
         return;
       }
 
-      const newMember = { id: currentUser.id, name: currentUser.name, count: 0, lastActive: new Date().toISOString(), history: [] };
+      const newMember: Member = { 
+        id: currentUser.id, 
+        name: currentUser.name, 
+        count: 0, 
+        lastActive: new Date().toISOString(), 
+        history: [] 
+      };
+      
       const updatedMembers = [...group.members, newMember];
-      const serialized = serializeGroupData({ ...group, members: updatedMembers });
+      const updatedGroup = { ...group, members: updatedMembers };
+      const serialized = serializeGroupData(updatedGroup);
 
-      await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
-      setGroups(prev => [...prev, { ...group, members: updatedMembers }]);
-      alert(`Joined ${group.name}!`);
+      const { error: updateError } = await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
+      if (updateError) throw updateError;
+
+      setGroups(prev => [...prev, updatedGroup]);
+      alert(`Successfully joined ${group.name}!`);
     } catch (e: any) {
       console.error("Error joining group:", e);
-      alert("Failed to join sangha.");
+      alert("Failed to join sangha. Please check the ID and your connection.");
     }
   };
 

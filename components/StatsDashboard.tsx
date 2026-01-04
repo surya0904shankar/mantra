@@ -36,7 +36,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
       name: g.name,
       count: userInGroup ? userInGroup.count : 0,
     };
-  }).filter(d => d.count > 0);
+  }).filter(d => d.count >= 0); // Include groups with 0 counts to show presence
 
   const handleGetAdvice = async () => {
     setIsLoadingAi(true);
