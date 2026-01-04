@@ -356,7 +356,6 @@ const App: React.FC = () => {
           const { error: groupSyncErr } = await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
           if (groupSyncErr) {
             console.error("Supabase RLS UPDATE Blocked:", groupSyncErr.message);
-            // This usually happens if the UPDATE policy for 'groups' table isn't set.
           }
         }
       } catch (err) {
@@ -381,7 +380,8 @@ const App: React.FC = () => {
       setGroups(prev => [...prev, newGroup]);
     } catch (e: any) {
       console.error("Error creating group:", e);
-      alert("Failed to create sangha circle. Verify INSERT policy on 'groups'.");
+      // Displaying the actual database error to help the user troubleshoot RLS or schema issues
+      alert(`Sangha Creation Failed: ${e.message || 'Unknown database error'}. Ensure the "admin_id" column exists in your "groups" table and your RLS "INSERT" policy allows auth.uid() = admin_id.`);
     }
   };
 
@@ -419,7 +419,7 @@ const App: React.FC = () => {
       const { error: updateError } = await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
       if (updateError) {
         console.error("Join blocked by RLS policy:", updateError.message);
-        throw new Error("Supabase RLS Policy: 'UPDATE' on 'groups' table is missing or restricted.");
+        throw new Error(`Supabase RLS Policy error: ${updateError.message}`);
       }
 
       setGroups(prev => [...prev, updatedGroup]);
