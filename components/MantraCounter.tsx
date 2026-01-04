@@ -96,7 +96,6 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
     const now = ctx.currentTime;
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, now);
-    // Setting volume high (0.7) as requested for "more louder" ambiance
     gainNode.gain.linearRampToValueAtTime(0.7, now + 2);
     gainNode.connect(ctx.destination);
     const activeSources: (AudioBufferSourceNode | OscillatorNode)[] = [];
@@ -112,22 +111,18 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
         activeSources.push(osc);
       });
     } else if (prefs.ambianceSound === 'BELL_CLINGING') {
-       // Synthesizing a clear, crystalline single bell "clinging" sound loop
        const bellFreqs = [1200, 2400, 3600];
        bellFreqs.forEach((f, idx) => {
          const osc = ctx.createOscillator();
          const loopGain = ctx.createGain();
          osc.type = 'sine';
          osc.frequency.setValueAtTime(f, now);
-         
-         // Create a rhythmic clinging effect
          loopGain.gain.setValueAtTime(0, now);
-         const rhythm = 3.0; // every 3 seconds
+         const rhythm = 3.0;
          for(let i=0; i<60; i++) {
            loopGain.gain.setValueAtTime(0.1 / (idx+1), now + (i * rhythm));
            loopGain.gain.exponentialRampToValueAtTime(0.0001, now + (i * rhythm) + 2.5);
          }
-         
          osc.connect(loopGain);
          loopGain.connect(gainNode);
          osc.start();
@@ -138,14 +133,11 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
       let lastOut = 0;
-      
       for (let i = 0; i < bufferSize; i++) {
         const white = Math.random() * 2 - 1;
-        // Low-pass filtered noise to simulate heavy waterfall rush
         lastOut = (lastOut + (0.1 * white)) / 1.02;
         data[i] = lastOut;
       }
-      
       const bufSource = ctx.createBufferSource();
       bufSource.buffer = buffer;
       bufSource.loop = true;
@@ -153,19 +145,16 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
       bufSource.start();
       activeSources.push(bufSource);
     } else {
-      // Birds or Rain
       const bufferSize = ctx.sampleRate * 3;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
       let lastOut = 0;
-      
       for (let i = 0; i < bufferSize; i++) {
         const white = Math.random() * 2 - 1;
         const filterCoeff = prefs.ambianceSound === 'RAIN_FALL' ? 1.05 : 1.5;
         lastOut = (lastOut + (0.02 * white)) / filterCoeff;
         data[i] = lastOut * (prefs.ambianceSound === 'MORNING_BIRDS' ? Math.sin(i * 0.001) : 1);
       }
-      
       const bufSource = ctx.createBufferSource();
       bufSource.buffer = buffer;
       bufSource.loop = true;
@@ -281,9 +270,10 @@ const MantraCounter: React.FC<MantraCounterProps> = ({
             </span>
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => setIsZenMode(true)} 
-                className="flex items-center gap-2 px-4 py-2 bg-stone-50 dark:bg-stone-800 rounded-full text-stone-500 hover:text-saffron-500 transition-all border border-stone-100 dark:border-stone-700 active:scale-95 group shadow-sm"
+                onClick={() => { if(isPremium) setIsZenMode(true); else onUpgradeClick(); }} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all border active:scale-95 group shadow-sm ${isPremium ? 'bg-stone-50 dark:bg-stone-800 text-stone-500 hover:text-saffron-500 border-stone-100 dark:border-stone-700' : 'bg-stone-100 dark:bg-stone-900 text-stone-400 border-stone-200 dark:border-stone-800'}`}
               >
+                {!isPremium && <Lock size={12} className="text-stone-400" />}
                 <span className="text-[10px] font-black uppercase tracking-widest">Zen Mode</span>
                 <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </button>

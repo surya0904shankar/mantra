@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Group, Mantra } from '../types';
-import { Plus, Users, Search, Sparkles, Copy, Check, ArrowRight, BarChart3, Lock, Bell, Crown, User, Star, AlignLeft } from 'lucide-react';
+import { Plus, Users, Search, Sparkles, Copy, Check, ArrowRight, BarChart3, Lock, Bell, Crown, User, Star, AlignLeft, Info } from 'lucide-react';
 import GroupAnalytics from './GroupAnalytics';
 import NoticeBoardModal from './NoticeBoardModal';
 
@@ -33,13 +33,17 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
     g.adminId === currentUserId || (Array.isArray(g.members) && g.members.some(m => m.id === currentUserId))
   );
 
+  const myCreatedGroups = groups.filter(g => g.adminId === currentUserId);
+  const canCreateMore = isPremium || myCreatedGroups.length < 2;
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGroupName || !description) return;
+    if (!canCreateMore) {
+       onTriggerUpgrade();
+       return;
+    }
     const id = crypto.randomUUID();
-    
-    // Defaulting practice count but removing hardcoded 'Om' text
-    // The group identity is now the practice identity.
     onCreateGroup({
       id,
       name: newGroupName,
@@ -49,7 +53,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
       announcements: [],
       mantra: { 
         id: id + '-m', 
-        text: newGroupName, // Use the name itself as the chant identifier
+        text: newGroupName,
         targetCount: 108, 
         meaning: description
       },
@@ -81,7 +85,13 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
             </div>
             <div className="flex gap-3 w-full sm:w-auto">
               <button onClick={() => setMode('JOIN')} className="flex-1 sm:flex-none px-5 py-2.5 bg-white dark:bg-stone-900 border rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-stone-50 dark:hover:bg-stone-800"><Search size={18} /> Join</button>
-              <button onClick={() => setMode('CREATE')} className="flex-1 sm:flex-none px-5 py-2.5 bg-stone-900 text-white rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-stone-800 shadow-lg"><Plus size={18} /> Create</button>
+              <button 
+                onClick={() => canCreateMore ? setMode('CREATE') : onTriggerUpgrade()} 
+                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${canCreateMore ? 'bg-stone-900 text-white hover:bg-stone-800' : 'bg-stone-100 text-stone-400 border border-stone-200'}`}
+              >
+                {!canCreateMore && <Lock size={16} />}
+                <Plus size={18} /> Create
+              </button>
             </div>
           </div>
 
@@ -115,6 +125,9 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
                         {group.description || 'No description provided.'}
                       </p>
                     </div>
+                    <div className="mb-4 flex items-center gap-2 text-[10px] text-stone-400 font-bold uppercase tracking-wider">
+                       <Users size={12} /> {group.members.length} / {group.isPremium ? 'Unlimited' : '25 Members'}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setAnalyzingGroup(group)} className="flex-1 bg-white dark:bg-stone-800 border py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-1 hover:bg-stone-50 transition-colors"><BarChart3 size={16} /> Stats</button>
@@ -128,7 +141,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
               <div className="md:col-span-2 py-20 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-[2rem]">
                  <Users className="mx-auto mb-4 text-stone-300" size={48} />
                  <p className="text-stone-500 font-serif italic mb-6">You haven't joined any Sanghas yet.</p>
-                 <button onClick={() => setMode('CREATE')} className="px-6 py-3 bg-stone-950 text-white rounded-2xl font-bold flex items-center gap-2 mx-auto">
+                 <button onClick={() => canCreateMore ? setMode('CREATE') : onTriggerUpgrade()} className="px-6 py-3 bg-stone-950 text-white rounded-2xl font-bold flex items-center gap-2 mx-auto">
                    <Plus size={20} /> Create Your First Circle
                  </button>
               </div>
@@ -142,6 +155,11 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({
           <header className="text-center mb-10">
             <h2 className="text-3xl font-display font-bold text-stone-800 dark:text-stone-100 mb-2 uppercase tracking-tight">New Sangha</h2>
             <p className="text-stone-500 font-serif">Form a sacred practice community.</p>
+            {!isPremium && (
+               <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 rounded-full font-bold">
+                 <Info size={14} /> Basic Limit: 2 Sanghas, 25 members each.
+               </div>
+            )}
           </header>
 
           <form onSubmit={handleCreateSubmit} className="space-y-6">

@@ -270,7 +270,7 @@ const App: React.FC = () => {
     const today = new Date();
     const isoNow = today.toISOString();
 
-    // 1. If it's PERSONAL PRACTICE (No groupId), update Personal Stats & Database
+    // 1. PERSONAL PRACTICE: Strictly update UserStats and profiles table
     if (!groupId) {
       let nextStats: UserStats | null = null;
       setUserStats(prev => {
@@ -312,7 +312,7 @@ const App: React.FC = () => {
         }
       }
     } 
-    // 2. If it's GROUP PRACTICE, update Group Circle ONLY
+    // 2. GROUP PRACTICE: Strictly update the shared groups table only
     else {
       try {
         const { data: latestGroupRaw } = await supabase.from('groups').select('*').eq('id', groupId).single();
@@ -366,6 +366,14 @@ const App: React.FC = () => {
 
   const handleCreateGroup = async (newGroup: Group) => {
     if (!currentUser) return;
+    
+    // Safety check for group count limits
+    const myCreatedGroups = groups.filter(g => g.adminId === currentUser.id);
+    if (myCreatedGroups.length >= 2 && !userStats.isPremium) {
+       alert("Limit Reached: Basic members can create max 2 Sanghas. Upgrade to Premium for unlimited circles.");
+       return;
+    }
+
     try {
       const serialized = serializeGroupData(newGroup);
       const { error } = await supabase.from('groups').insert({
@@ -380,8 +388,7 @@ const App: React.FC = () => {
       setGroups(prev => [...prev, newGroup]);
     } catch (e: any) {
       console.error("Error creating group:", e);
-      // Displaying the actual database error to help the user troubleshoot RLS or schema issues
-      alert(`Sangha Creation Failed: ${e.message || 'Unknown database error'}. Ensure the "admin_id" column exists in your "groups" table and your RLS "INSERT" policy allows auth.uid() = admin_id.`);
+      alert(`Sangha Creation Failed: ${e.message || 'Unknown database error'}.`);
     }
   };
 
@@ -389,9 +396,16 @@ const App: React.FC = () => {
     if (!currentUser) return;
     try {
       const { data: raw, error } = await supabase.from('groups').select('*').eq('id', groupId).single();
-      if (error || !raw) throw new Error("Sangha not found or SELECT permission missing.");
+      if (error || !raw) throw new Error("Sangha not found.");
       
       const group = deserializeGroup(raw);
+
+      // Check member limit for non-premium groups
+      if (!group.isPremium && group.members.length >= 25) {
+         alert("This Sangha has reached its 25-member capacity for Basic tier. The creator must upgrade to accommodate more members.");
+         return;
+      }
+
       if (group.members.some(m => m.id === currentUser.id)) {
         alert("You are already in this circle.");
         return;
@@ -409,7 +423,6 @@ const App: React.FC = () => {
       const updatedGroup = { ...group, members: updatedMembers };
       const serialized = serializeGroupData(updatedGroup);
 
-      // Save to local storage as fallback immediately
       const joinedIds = JSON.parse(localStorage.getItem(`om_joined_groups_${currentUser.id}`) || '[]');
       if (!joinedIds.includes(groupId)) {
         joinedIds.push(groupId);
@@ -417,10 +430,7 @@ const App: React.FC = () => {
       }
 
       const { error: updateError } = await supabase.from('groups').update({ description: serialized }).eq('id', groupId);
-      if (updateError) {
-        console.error("Join blocked by RLS policy:", updateError.message);
-        throw new Error(`Supabase RLS Policy error: ${updateError.message}`);
-      }
+      if (updateError) throw new Error(updateError.message);
 
       setGroups(prev => [...prev, updatedGroup]);
       alert(`Joined ${group.name} successfully!`);
