@@ -21,7 +21,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
   // Strictly filter for sanghas the user is a member of
   const myGroups = groups.filter(g => currentUser?.id && g.members.some(m => m.id === currentUser.id));
 
-  // Individual counts for each mantra
+  // Individual counts for each mantra (Personal only, since App.tsx logic changed)
   const displaySadhanaData = userStats.mantraBreakdown.map(m => ({
     name: m.mantraText,
     count: m.totalCount
@@ -36,7 +36,11 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
       name: g.name,
       count: userInGroup ? userInGroup.count : 0,
     };
-  }).filter(d => d.count >= 0); // Include groups with 0 counts to show presence
+  }).filter(d => d.count >= 0); 
+
+  // Combined Global Practice (Personal + All Group contributions)
+  const totalGroupContribution = groupData.reduce((sum, g) => sum + g.count, 0);
+  const globalImpactTotal = userStats.totalChants + totalGroupContribution;
 
   const handleGetAdvice = async () => {
     setIsLoadingAi(true);
@@ -99,8 +103,8 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800">
-          <p className="text-sm text-stone-500 font-bold uppercase tracking-wider font-serif">Total Chants</p>
-          <p className="text-3xl font-display font-bold text-stone-800 dark:text-stone-100">{userStats.totalChants.toLocaleString()}</p>
+          <p className="text-sm text-stone-500 font-bold uppercase tracking-wider font-serif">Total Global Chants</p>
+          <p className="text-3xl font-display font-bold text-stone-800 dark:text-stone-100">{globalImpactTotal.toLocaleString()}</p>
         </div>
 
         <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800">
@@ -140,7 +144,10 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
         </div>
 
         <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800 flex flex-col h-96">
-          <h3 className="text-lg font-serif font-bold text-stone-800 dark:text-stone-100 mb-4">Total Sadhanas</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-serif font-bold text-stone-800 dark:text-stone-100">Individual Sadhanas</h3>
+            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest bg-stone-50 dark:bg-stone-800 px-3 py-1 rounded-full">Personal only</span>
+          </div>
           <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
             {displaySadhanaData.length > 0 ? (
               displaySadhanaData.map((item, index) => (
@@ -151,7 +158,7 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ userStats, groups, curr
               ))
             ) : (
                <div className="h-full flex items-center justify-center text-stone-400 text-sm italic">
-                No chants in history.
+                No personal chants in history.
               </div>
             )}
           </div>

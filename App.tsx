@@ -270,50 +270,50 @@ const App: React.FC = () => {
     const today = new Date();
     const isoNow = today.toISOString();
 
-    let nextStats: UserStats | null = null;
+    // 1. If it's PERSONAL PRACTICE (No groupId), update Personal Stats & Database
+    if (!groupId) {
+      let nextStats: UserStats | null = null;
+      setUserStats(prev => {
+        let nextStreak = prev.streakDays;
+        const lastDate = prev.lastChantedDate ? new Date(prev.lastChantedDate) : null;
 
-    // Update Local and Personal State
-    setUserStats(prev => {
-      let nextStreak = prev.streakDays;
-      const lastDate = prev.lastChantedDate ? new Date(prev.lastChantedDate) : null;
+        if (!lastDate) nextStreak = 1;
+        else if (isYesterday(today, lastDate)) nextStreak += 1;
+        else if (!isSameDay(today, lastDate)) nextStreak = 1;
 
-      if (!lastDate) nextStreak = 1;
-      else if (isYesterday(today, lastDate)) nextStreak += 1;
-      else if (!isSameDay(today, lastDate)) nextStreak = 1;
+        const nextTotal = prev.totalChants + increment;
+        const nextBreakdown = [...prev.mantraBreakdown];
+        const idx = nextBreakdown.findIndex(m => m.mantraText === mantraText);
+        if (idx > -1) nextBreakdown[idx].totalCount += increment;
+        else nextBreakdown.push({ mantraText, totalCount: increment });
 
-      const nextTotal = prev.totalChants + increment;
-      const nextBreakdown = [...prev.mantraBreakdown];
-      const idx = nextBreakdown.findIndex(m => m.mantraText === mantraText);
-      if (idx > -1) nextBreakdown[idx].totalCount += increment;
-      else nextBreakdown.push({ mantraText, totalCount: increment });
+        nextStats = { 
+          ...prev, 
+          totalChants: nextTotal, 
+          mantraBreakdown: nextBreakdown,
+          streakDays: nextStreak,
+          lastChantedDate: isoNow
+        };
+        
+        return nextStats;
+      });
 
-      nextStats = { 
-        ...prev, 
-        totalChants: nextTotal, 
-        mantraBreakdown: nextBreakdown,
-        streakDays: nextStreak,
-        lastChantedDate: isoNow
-      };
-      
-      return nextStats;
-    });
-
-    if (nextStats) {
-      try {
-        await supabase.from('profiles').upsert({ 
-          id: currentUser.id,
-          total_global_chants: (nextStats as UserStats).totalChants,
-          mantra_stats: (nextStats as UserStats).mantraBreakdown,
-          last_chanted_date: (nextStats as UserStats).lastChantedDate,
-          streak_days: (nextStats as UserStats).streakDays
-        }, { onConflict: 'id' });
-      } catch (err) {
-        console.error("Profile sync warning:", err);
+      if (nextStats) {
+        try {
+          await supabase.from('profiles').upsert({ 
+            id: currentUser.id,
+            total_global_chants: (nextStats as UserStats).totalChants,
+            mantra_stats: (nextStats as UserStats).mantraBreakdown,
+            last_chanted_date: (nextStats as UserStats).lastChantedDate,
+            streak_days: (nextStats as UserStats).streakDays
+          }, { onConflict: 'id' });
+        } catch (err) {
+          console.error("Profile sync warning:", err);
+        }
       }
-    }
-
-    // Sync to Sangha Circle
-    if (groupId) {
+    } 
+    // 2. If it's GROUP PRACTICE, update Group Circle ONLY
+    else {
       try {
         const { data: latestGroupRaw } = await supabase.from('groups').select('*').eq('id', groupId).single();
         if (latestGroupRaw) {
